@@ -1,10 +1,9 @@
-#!/usr/bin/python
-
 import os
 import sys
 import select
 import struct
 import os.path
+import errno
 
 SSH2_FX_OK = 0
 SSH2_FX_EOF = 1
@@ -51,9 +50,15 @@ SSH2_FILEXFER_ATTR_PERMISSIONS = 0x00000004
 SSH2_FILEXFER_ATTR_ACMODTIME = 0x00000008
 SSH2_FILEXFER_ATTR_EXTENDED = 0x80000000
 
-class SFTPForbidden(Exception):
+class SFTPException(Exception):
     def __init__(self, msg=None):
         self.msg = msg
+
+class SFTPForbidden(SFTPException):
+    pass
+
+class SFTPNotFound(SFTPException):
+    pass
 
 class SFTPServerObject(object):
     def __init__(self, server, name, cmd=os.stat, force_name=None):
@@ -114,7 +119,7 @@ class SFTPServerHandle(object):
     
 
 class SFTPServer(object):
-    def __init__(self, home, logfile=None, fd_in=0,fd_out=1):
+    def __init__(self, home, logfile=None, fd_in=0,fd_out=1,raise_on_error=False):
         self.input_queue = ''
         self.output_queue = ''
         self.payload = ''
@@ -125,6 +130,7 @@ class SFTPServer(object):
         self.parent = os.path.split(self.home)[0]
         self.handles = {}
         self.handle_cnt = 0
+        self.raise_on_error = raise_on_error
         os.chdir(self.home)
         self.logfile = None
         if logfile:
@@ -176,11 +182,15 @@ class SFTPServer(object):
         msg_len = struct.pack('>I', len(msg))
         self.output_queue += msg_len + msg
 
-    def send_status(self, sid, status, text=None):
+    def send_status(self, sid, status, exc=None):
+        if status != SSH2_FX_OK and self.raise_on_error:
+            if exc:
+                raise exc
+            raise SFTPException()
         self.log("sending status %d" % status)
         msg = struct.pack('>BII', SSH2_FXP_STATUS, sid, status)
-        if text:
-            msg += struct.pack('>I', len(text)) + text
+        if exc:
+            msg += struct.pack('>I', len(exc)) + exc.msg 
             msg += struct.pack('>I', 0)
         self.send_msg(msg)
 
@@ -224,12 +234,18 @@ class SFTPServer(object):
                 msg_id = self.consume_int()
                 if msg_type in self.table.keys():
                     try:
-                        self.log("COMMAND = %d" % msg_type)
                         self.table[msg_type](self, msg_id)
                     except SFTPForbidden as e:
-                        self.send_status(msg_id, SSH2_FX_PERMISSION_DENIED, e.msg)
+                        self.send_status(msg_id, SSH2_FX_PERMISSION_DENIED, e)
+                    except SFTPNotFound as e:
+                        self.send_status(msg_id, SSH2_FX_NO_SUCH_FILE, e)
+                    except OSError as e:
+                        if e.errno == errno.ENOENT:
+                            self.send_status(msg_id, SSH2_FX_NO_SUCH_FILE, SFTPNotFound())
+                        else:
+                            self.send_status(msg_id, SSH2_FX_FAILURE)
                     except:
-                        self.log("OOOPS")
+                        self.send_status(msg_id, SSH2_FX_FAILURE)
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
 
@@ -370,6 +386,3 @@ class SFTPServer(object):
                  SSH2_FXP_MKDIR: _mkdir,
                  SSH2_FXP_RMDIR: _rmdir,
              }
-
-if __name__ == '__main__':
-    SFTPServer(sys.argv[1]).run()
