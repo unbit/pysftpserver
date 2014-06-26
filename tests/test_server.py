@@ -57,8 +57,6 @@ class ServerTest(unittest.TestCase):
         self.server.input_queue = _sftpcmd(SSH2_FXP_OPEN, _sftpstring('services'), _sftpint(SSH2_FXF_CREAT), _sftpint(0))
         self.server.process()
         handle = _sftphandle(self.server.output_queue)
-        print len(handle)
-        print list(handle)
         # reset output queue
         self.server.output_queue = ''
         etc_services = open('/etc/services').read()
