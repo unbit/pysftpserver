@@ -126,6 +126,7 @@ class SFTPServer(object):
         self.handles = {}
         self.handle_cnt = 0
         os.chdir(self.home)
+        self.logfile = None
         if logfile:
             self.logfile = open(logfile, 'a')
             sys.stderr = self.logfile
