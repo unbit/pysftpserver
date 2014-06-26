@@ -189,8 +189,8 @@ class SFTPServer(object):
             raise SFTPException()
         self.log("sending status %d" % status)
         msg = struct.pack('>BII', SSH2_FXP_STATUS, sid, status)
-        if exc:
-            msg += struct.pack('>I', len(exc)) + exc.msg 
+        if exc and exc.msg:
+            msg += struct.pack('>I', len(exc.msg)) + exc.msg 
             msg += struct.pack('>I', 0)
         self.send_msg(msg)
 
