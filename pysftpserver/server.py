@@ -93,13 +93,13 @@ class SFTPServer(object):
                 mode = 'w+'
             if flags & SSH2_FXF_CREAT:
                 mode = 'w' 
-            handle = self.server.open(filename, mode, attrs)
+            handle = self.storage.open(filename, mode, attrs)
         
-        if self.server.handle_cnt == 0xffffffffffffffff:
+        if self.handle_cnt == 0xffffffffffffffff:
             raise OverflowError()
-        self.server.handle_cnt+=1
-        handle_id = str(self.server.handle_cnt)
-        self.server.handles[handle_id] = handle 
+        self.handle_cnt+=1
+        handle_id = str(self.handle_cnt)
+        self.handles[handle_id] = handle 
         return handle_id
 
     def log(self, txt):
@@ -263,7 +263,7 @@ class SFTPServer(object):
 
     def _opendir(self, sid):
         filename = self.consume_filename()
-        handle_id = self.new_handle(filename, True)
+        handle_id = self.new_handle(filename, is_opendir=True)
         msg = struct.pack('>BII', SSH2_FXP_HANDLE, sid, len(handle_id))
         msg += handle_id
         self.send_msg(msg)
@@ -279,18 +279,20 @@ class SFTPServer(object):
         self.send_item(sid, item)
 
     def _close(self, sid):
-        handle = self.consume_handle()
+        # here we need to hold the handle id
+        handle_id = self.consume_string()
+        handle = self.handles[handle_id]
         self.storage.close(handle)
-        del(self.handles[handle])
+        del(self.handles[handle_id])
         self.send_status(sid, SSH2_FX_OK)
 
     def _open(self, sid):
         filename = self.consume_string()
         flags = self.consume_int()
         attrs = self.consume_attrs()
-        handle = SFTPServerHandle(self, filename, flags, attrs)
-        msg = struct.pack('>BII', SSH2_FXP_HANDLE, sid, len(handle.id))
-        msg += handle.id
+        handle_id = self.new_handle(filename, flags, attrs)
+        msg = struct.pack('>BII', SSH2_FXP_HANDLE, sid, len(handle_id))
+        msg += handle_id
         self.send_msg(msg)
 
     def _read(self, sid):
