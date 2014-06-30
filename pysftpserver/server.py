@@ -60,45 +60,30 @@ class SFTPForbidden(SFTPException):
 class SFTPNotFound(SFTPException):
     pass
 
-class SFTPServerObject(object):
-    def __init__(self, server, name, cmd=os.stat, force_name=None):
-        self.server = server
-        self.server.log('%s == %s' % (name, self.server.home))
-        self.name = os.path.realpath(name)
-        if not self.name.startswith(self.server.home + '/') and self.name != self.server.home:
-            self.server.log('%s == %s / %s' % (self.name, self.server.home, self.server.parent))
-            if not (force_name == '..' and self.name == self.server.parent):
-                raise SFTPForbidden()
-        self.stat = cmd(self.name)
-        self.flags = SSH2_FILEXFER_ATTR_SIZE | SSH2_FILEXFER_ATTR_UIDGID | SSH2_FILEXFER_ATTR_PERMISSIONS | SSH2_FILEXFER_ATTR_ACMODTIME
-        self.attrs = struct.pack('>IQIIIII', self.flags, self.stat.st_size,
-                         self.stat.st_uid,
-                         self.stat.st_gid,
-                         self.stat.st_mode,
-                         self.stat.st_atime,
-                         self.stat.st_mtime)
-        self.rel_name = os.path.split(self.name)[1]
-        if force_name:
-            self.rel_name = force_name
-        self.long_name = self.name
-        
+class SFTPServerStorage(object):
+       pass 
 
-class SFTPServerHandle(object):
-    def __init__(self, server, filename, flags=0, attrib={}):
-        self.name = os.path.realpath(filename)
-        self.server = server
-        if self.server.handle_cnt == 0xffffffffffffffff:
-            raise OverflowError()
-        self.server.handle_cnt+=1
-        # we use a string as the handle key
-        self.id = str(self.server.handle_cnt)
-        self.server.handles[self.id] = self
-        self.isdir = False
-        self.isfile = False
-        self.is_reading = False
-        if os.path.isdir(self.name):
-            self.isdir = True
-        if os.path.isfile(self.name) or not os.path.exists(self.name):
+class SFTPServer(object):
+    def __init__(self, storage, logfile=None, fd_in=0,fd_out=1,raise_on_error=False):
+        self.input_queue = ''
+        self.output_queue = ''
+        self.payload = ''
+        self.fd_in = fd_in
+        self.fd_out = fd_out
+        self.buffer_size = 8192
+        self.storage = storage
+        self.handles = {}
+        self.handle_cnt = 0
+        self.raise_on_error = raise_on_error
+        self.logfile = None
+        if logfile:
+            self.logfile = open(logfile, 'a')
+            sys.stderr = self.logfile
+
+    def new_handle(self, filename, flags=0, attrs={}, is_opendir=False):
+        if is_opendir:
+            handle = self.server.opendir(filename)
+        else:
             mode = 'r'
             if flags & SSH2_FXF_WRITE:
                 mode = 'w'
@@ -107,35 +92,15 @@ class SFTPServerHandle(object):
             if flags & SSH2_FXF_TRUNC:
                 mode = 'w+'
             if flags & SSH2_FXF_CREAT:
-                mode = 'w'
-            self.file = open(self.name, mode)
-            self.fd = self.file.fileno()
-            self.isfile = True
-
-    def close(self):
-        if self.isfile:
-            self.file.close() 
-        del(self.server.handles[self.id])
-    
-
-class SFTPServer(object):
-    def __init__(self, home, logfile=None, fd_in=0,fd_out=1,raise_on_error=False):
-        self.input_queue = ''
-        self.output_queue = ''
-        self.payload = ''
-        self.fd_in = fd_in
-        self.fd_out = fd_out
-        self.buffer_size = 8192
-        self.home = os.path.realpath(home)
-        self.parent = os.path.split(self.home)[0]
-        self.handles = {}
-        self.handle_cnt = 0
-        self.raise_on_error = raise_on_error
-        os.chdir(self.home)
-        self.logfile = None
-        if logfile:
-            self.logfile = open(logfile, 'a')
-            sys.stderr = self.logfile
+                mode = 'w' 
+            handle = self.server.open(filename, mode, attrs)
+        
+        if self.server.handle_cnt == 0xffffffffffffffff:
+            raise OverflowError()
+        self.server.handle_cnt+=1
+        handle_id = str(self.server.handle_cnt)
+        self.server.handles[handle_id] = handle 
+        return handle_id
 
     def log(self, txt):
         if not self.logfile: return
@@ -158,25 +123,47 @@ class SFTPServer(object):
         self.payload = self.payload[slen:]
         return s
 
-    def consume_attrib(self):
-        attrib = {}
+    def consume_handle(self):
+        handle_id = self.consume_string()
+        return self.handles[handle_id]
+
+    def consume_attrs(self):
+        attrs = {}
         flags = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_SIZE:
-            attrib['size'] = self.consume_int64()
+            attrs['size'] = self.consume_int64()
         if flags & SSH2_FILEXFER_ATTR_UIDGID:
-            attrib['uid'] = self.consume_int()
-            attrib['gid'] = self.consume_int()
+            attrs['uid'] = self.consume_int()
+            attrs['gid'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_PERMISSIONS:
-            attrib['perm'] = self.consume_int()
+            attrs['perm'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_ACMODTIME:
-            attrib['atime'] = self.consume_int()
-            attrib['mtime'] = self.consume_int()
+            attrs['atime'] = self.consume_int()
+            attrs['mtime'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_EXTENDED:
             count = self.consume_int()
-            if count > 0: attrib['extended'] = []
+            if count > 0: attrs['extended'] = []
             for i in range(0, count):
-                attrib['extended'].append({ self.consume_string(): self.consume_string()})   
-        return attrib
+                attrs['extended'].append({ self.consume_string(): self.consume_string()})   
+        return attrs
+
+    def consume_filename(self, default=None):
+        filename = self.consume_string()
+        if len(filename) == 0:
+            if default: filename=default
+            else: raise SFTPServerNotFound()
+        if self.storage.verify(filename):
+           return filename
+        raise SFTPServerForbidden()
+
+    def encode_attrs(self, attrs):
+        flags = SSH2_FILEXFER_ATTR_SIZE | SSH2_FILEXFER_ATTR_UIDGID | SSH2_FILEXFER_ATTR_PERMISSIONS | SSH2_FILEXFER_ATTR_ACMODTIME
+        return struct.pack('>IQIIIII', flags, attrs['size'],
+                         attrs['uid'],
+                         attrs['gid'],
+                         attrs['mode'],
+                         attrs['atime'],
+                         attrs['mtime'])
 
     def send_msg(self, msg):
         msg_len = struct.pack('>I', len(msg))
@@ -249,100 +236,68 @@ class SFTPServer(object):
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
 
-    def send_names(self, sid, items, relative=False):
-        msg = struct.pack('>BII', SSH2_FXP_NAME, sid, len(items))
-        for item in items:
-            if relative:
-                msg += struct.pack('>I', len(item.rel_name)) + item.rel_name
-                msg += struct.pack('>I', len(item.rel_name)) + item.rel_name
-            else:
-                msg += struct.pack('>I', len(item.name)) + item.name
-                msg += struct.pack('>I', len(item.long_name)) + item.long_name
-            msg += item.attrs
+    def send_item(self, sid, item):
+        msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
+        msg += struct.pack('>I', len(item)) + item
+        msg += struct.pack('>I', len(item)) + item
+        msg += self.encode_attrs( self.storage.stat(item) )
         self.send_msg(msg)
 
     def _realpath(self, sid):
-        filename = self.consume_string()
-        if len(filename) == 0: filename = '.'
-        self.send_names(sid, [SFTPServerObject(self, filename)])
+        filename = self.consume_filename('.')
+        self.send_item(sid, filename)
 
     def _stat(self, sid):
-        filename = self.consume_string()
-        try:
-            item = SFTPServerObject(self, filename)
-            msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
-            msg += item.attrs
-            self.send_msg(msg) 
-        except SFTPForbidden as e:
-            raise e
-        except:
-            self.send_status(sid, SSH2_FX_NO_SUCH_FILE)
+        filename = self.consume_filename()
+        attrs = self.storage.stat(filename)
+        msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
+        msg += self.encode_attrs(attrs)
+        self.send_msg(msg) 
 
     def _lstat(self, sid):
-        filename = self.consume_string()
-        try:
-            item = SFTPServerObject(self, filename, os.lstat)
-            msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
-            msg += item.attrs
-            self.send_msg(msg)
-        except SFTPForbidden as e:
-            raise e
-        except:
-            self.send_status(sid, SSH2_FX_NO_SUCH_FILE)
+        filename = self.consume_filename()
+        attrs = self.storage.stat(filename, lstat=True)
+        msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
+        msg += self.encode_attrs(attrs)
+        self.send_msg(msg) 
 
     def _opendir(self, sid):
-        filename = self.consume_string()
-        handle = SFTPServerHandle(self, filename)
-        msg = struct.pack('>BII', SSH2_FXP_HANDLE, sid, len(handle.id))
-        msg += handle.id
+        filename = self.consume_filename()
+        handle_id = self.new_handle(filename, True)
+        msg = struct.pack('>BII', SSH2_FXP_HANDLE, sid, len(handle_id))
+        msg += handle_id
         self.send_msg(msg)
 
     def _readdir(self, sid):
-        handle_id = self.consume_string()
-        handle = self.handles[handle_id]
-        if not handle.is_reading:
-            handle.items = ['.', '..'] + os.listdir(handle.name)
-            handle.is_reading = True
-        items = []
-        if not handle.items:
-            self.is_reading = False
+        handle = self.consume_handle()
+        try:
+            item = handle.next()
+        except StopIteration:
             self.send_status(sid, SSH2_FX_EOF)
             return
-        for name in handle.items:
-            if name in ('.', '..'):
-                true_path = SFTPServerObject(self, os.path.join(handle.name, name), force_name=name)
-            else:
-                true_path = SFTPServerObject(self, os.path.join(handle.name, name))
-            items.append(true_path)
-            handle.items.remove(name)
-            if len(items) >= 100:
-                self.send_names(sid, items, True)
-                items = []
-        if len(items) > 0:
-            self.send_names(sid, items, True)
+        
+        self.send_item(sid, item)
 
     def _close(self, sid):
-        handle_id = self.consume_string()
-        handle = self.handles[handle_id]
-        handle.close()
+        handle = self.consume_handle()
+        self.storage.close(handle)
+        del(self.handles[handle])
         self.send_status(sid, SSH2_FX_OK)
 
     def _open(self, sid):
         filename = self.consume_string()
         flags = self.consume_int()
-        attrib = self.consume_attrib()
-        handle = SFTPServerHandle(self, filename, flags, attrib)
+        attrs = self.consume_attrs()
+        handle = SFTPServerHandle(self, filename, flags, attrs)
         msg = struct.pack('>BII', SSH2_FXP_HANDLE, sid, len(handle.id))
         msg += handle.id
         self.send_msg(msg)
 
     def _read(self, sid):
-        handle_id = self.consume_string()
-        handle = self.handles[handle_id]
+        handle = self.consume_handle()
         off = self.consume_int64()
         size = self.consume_int()
-        os.lseek(handle.fd, off, os.SEEK_SET)
-        chunk = os.read(handle.fd, size)
+        chunk = self.storage.read(handle, off, size)
         if len(chunk) == 0:
             self.send_status(sid, SSH2_FX_EOF)
         elif len(chunk) > 0:
@@ -351,26 +306,23 @@ class SFTPServer(object):
             self.send_status(sid, SSH2_FX_FAILURE)
 
     def _write(self, sid):
-        handle_id = self.consume_string()
-        handle = self.handles[handle_id]
+        handle = self.consume_handle()
         off = self.consume_int64()
         chunk = self.consume_string()
-        os.lseek(handle.fd, off, os.SEEK_SET)
-        rlen = os.write(handle.fd, chunk)
-        if rlen == len(chunk):
+        if self.storage.write(handle, off, chunk):
             self.send_status(sid, SSH2_FX_OK)
         else:
             self.send_status(sid, SSH2_FX_FAILURE)
 
     def _mkdir(self, sid):
-        filename = self.consume_string()
-        attrib = self.consume_attrib()
-        os.mkdir(filename)
+        filename = self.consume_filename()
+        attrs = self.consume_attrs()
+        self.storage.mkdir(filename, attrs)
         self.send_status(sid, SSH2_FX_OK)
 
     def _rmdir(self, sid):
-        filename = self.consume_string()
-        os.rmdir(filename)
+        filename = self.consume_filename()
+        self.storage.rmdir(filename)
         self.send_status(sid, SSH2_FX_OK)
 
     table = {

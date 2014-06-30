@@ -1,4 +1,4 @@
 import sys
 from pysftpserver import *
 
-SFTPServer(sys.argv[1]).run()
+SFTPServer(SFTPServerVirtualChroot(sys.argv[1])).run()

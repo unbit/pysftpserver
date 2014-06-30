@@ -35,7 +35,7 @@ class ServerTest(unittest.TestCase):
         self.home = 'testhome'
         if not os.path.isdir(self.home):        
             os.mkdir(self.home)
-        self.server = SFTPServer(self.home, raise_on_error=True)
+        self.server = SFTPServer(SFTPServerVirtualChroot(self.home), raise_on_error=True)
         if os.path.exists('foo'):
             os.rmdir('foo')
     
