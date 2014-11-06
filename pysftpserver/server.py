@@ -50,21 +50,28 @@ SSH2_FILEXFER_ATTR_PERMISSIONS = 0x00000004
 SSH2_FILEXFER_ATTR_ACMODTIME = 0x00000008
 SSH2_FILEXFER_ATTR_EXTENDED = 0x80000000
 
+
 class SFTPException(Exception):
+
     def __init__(self, msg=None):
         self.msg = msg
+
 
 class SFTPForbidden(SFTPException):
     pass
 
+
 class SFTPNotFound(SFTPException):
     pass
 
+
 class SFTPServerStorage(object):
-       pass 
+    pass
+
 
 class SFTPServer(object):
-    def __init__(self, storage, logfile=None, fd_in=0,fd_out=1,raise_on_error=False):
+
+    def __init__(self, storage, logfile=None, fd_in=0, fd_out=1, raise_on_error=False):
         self.input_queue = ''
         self.output_queue = ''
         self.payload = ''
@@ -92,18 +99,19 @@ class SFTPServer(object):
             if flags & SSH2_FXF_TRUNC:
                 mode = 'w+'
             if flags & SSH2_FXF_CREAT:
-                mode = 'w' 
+                mode = 'w'
             handle = self.storage.open(filename, mode, attrs)
-        
+
         if self.handle_cnt == 0xffffffffffffffff:
             raise OverflowError()
-        self.handle_cnt+=1
+        self.handle_cnt += 1
         handle_id = str(self.handle_cnt)
-        self.handles[handle_id] = handle 
+        self.handles[handle_id] = handle
         return handle_id
 
     def log(self, txt):
-        if not self.logfile: return
+        if not self.logfile:
+            return
         self.logfile.write(txt + '\n')
         self.logfile.flush()
 
@@ -116,7 +124,7 @@ class SFTPServer(object):
         value, = struct.unpack('>Q', self.payload[0:8])
         self.payload = self.payload[8:]
         return value
-        
+
     def consume_string(self):
         slen = self.consume_int()
         s = self.payload[0:slen]
@@ -142,28 +150,32 @@ class SFTPServer(object):
             attrs['mtime'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_EXTENDED:
             count = self.consume_int()
-            if count > 0: attrs['extended'] = []
+            if count > 0:
+                attrs['extended'] = []
             for i in range(0, count):
-                attrs['extended'].append({ self.consume_string(): self.consume_string()})   
+                attrs['extended'].append(
+                    {self.consume_string(): self.consume_string()})
         return attrs
 
     def consume_filename(self, default=None):
         filename = self.consume_string()
         if len(filename) == 0:
-            if default: filename=default
-            else: raise SFTPServerNotFound()
+            if default:
+                filename = default
+            else:
+                raise SFTPServerNotFound()
         if self.storage.verify(filename):
-           return filename
+            return filename
         raise SFTPServerForbidden()
 
     def encode_attrs(self, attrs):
         flags = SSH2_FILEXFER_ATTR_SIZE | SSH2_FILEXFER_ATTR_UIDGID | SSH2_FILEXFER_ATTR_PERMISSIONS | SSH2_FILEXFER_ATTR_ACMODTIME
         return struct.pack('>IQIIIII', flags, attrs['size'],
-                         attrs['uid'],
-                         attrs['gid'],
-                         attrs['mode'],
-                         attrs['atime'],
-                         attrs['mtime'])
+                           attrs['uid'],
+                           attrs['gid'],
+                           attrs['mode'],
+                           attrs['atime'],
+                           attrs['mtime'])
 
     def send_msg(self, msg):
         msg_len = struct.pack('>I', len(msg))
@@ -177,7 +189,7 @@ class SFTPServer(object):
         self.log("sending status %d" % status)
         msg = struct.pack('>BII', SSH2_FXP_STATUS, sid, status)
         if exc and exc.msg:
-            msg += struct.pack('>I', len(exc.msg)) + exc.msg 
+            msg += struct.pack('>I', len(exc.msg)) + exc.msg
             msg += struct.pack('>I', 0)
         self.send_msg(msg)
 
@@ -197,25 +209,29 @@ class SFTPServer(object):
             wait_write = [self.fd_out]
         rlist, wlist, xlist = select.select([self.fd_in], wait_write, [])
         if self.fd_in in rlist:
-            buf = os.read(self.fd_in, self.buffer_size) 
-            if len(buf) <= 0: return True
+            buf = os.read(self.fd_in, self.buffer_size)
+            if len(buf) <= 0:
+                return True
             self.input_queue += buf
             self.process()
         if self.fd_out in wlist:
             rlen = os.write(self.fd_out, self.output_queue)
-            if rlen <= 0: return True
+            if rlen <= 0:
+                return True
             self.output_queue = self.output_queue[rlen:]
-
 
     def process(self):
         while True:
-            if len(self.input_queue) < 5: return
+            if len(self.input_queue) < 5:
+                return
             msg_len, msg_type = struct.unpack('>IB', self.input_queue[0:5])
-            if len(self.input_queue) < msg_len + 4: return
-            self.payload = self.input_queue[5:4+msg_len]
+            if len(self.input_queue) < msg_len + 4:
+                return
+            self.payload = self.input_queue[5:4 + msg_len]
             self.input_queue = self.input_queue[msg_len + 4:]
             if msg_type == SSH2_FXP_INIT:
-                msg = struct.pack('>BI', SSH2_FXP_VERSION, SSH2_FILEXFER_VERSION)
+                msg = struct.pack(
+                    '>BI', SSH2_FXP_VERSION, SSH2_FILEXFER_VERSION)
                 self.send_msg(msg)
             else:
                 msg_id = self.consume_int()
@@ -228,7 +244,8 @@ class SFTPServer(object):
                         self.send_status(msg_id, SSH2_FX_NO_SUCH_FILE, e)
                     except OSError as e:
                         if e.errno == errno.ENOENT:
-                            self.send_status(msg_id, SSH2_FX_NO_SUCH_FILE, SFTPNotFound())
+                            self.send_status(
+                                msg_id, SSH2_FX_NO_SUCH_FILE, SFTPNotFound())
                         else:
                             self.send_status(msg_id, SSH2_FX_FAILURE)
                     except:
@@ -240,7 +257,7 @@ class SFTPServer(object):
         msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
         msg += struct.pack('>I', len(item)) + item
         msg += struct.pack('>I', len(item)) + item
-        msg += self.encode_attrs( self.storage.stat(item) )
+        msg += self.encode_attrs(self.storage.stat(item))
         self.send_msg(msg)
 
     def _realpath(self, sid):
@@ -252,14 +269,14 @@ class SFTPServer(object):
         attrs = self.storage.stat(filename)
         msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
         msg += self.encode_attrs(attrs)
-        self.send_msg(msg) 
+        self.send_msg(msg)
 
     def _lstat(self, sid):
         filename = self.consume_filename()
         attrs = self.storage.stat(filename, lstat=True)
         msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
         msg += self.encode_attrs(attrs)
-        self.send_msg(msg) 
+        self.send_msg(msg)
 
     def _opendir(self, sid):
         filename = self.consume_filename()
@@ -275,7 +292,7 @@ class SFTPServer(object):
         except StopIteration:
             self.send_status(sid, SSH2_FX_EOF)
             return
-        
+
         self.send_item(sid, item)
 
     def _close(self, sid):
@@ -328,15 +345,15 @@ class SFTPServer(object):
         self.send_status(sid, SSH2_FX_OK)
 
     table = {
-                 SSH2_FXP_REALPATH: _realpath,
-                 SSH2_FXP_LSTAT: _lstat,
-                 SSH2_FXP_STAT: _stat,
-                 SSH2_FXP_OPENDIR: _opendir,
-                 SSH2_FXP_READDIR: _readdir,
-                 SSH2_FXP_CLOSE: _close,
-                 SSH2_FXP_OPEN: _open,
-                 SSH2_FXP_READ: _read,
-                 SSH2_FXP_WRITE: _write,
-                 SSH2_FXP_MKDIR: _mkdir,
-                 SSH2_FXP_RMDIR: _rmdir,
-             }
+        SSH2_FXP_REALPATH: _realpath,
+        SSH2_FXP_LSTAT: _lstat,
+        SSH2_FXP_STAT: _stat,
+        SSH2_FXP_OPENDIR: _opendir,
+        SSH2_FXP_READDIR: _readdir,
+        SSH2_FXP_CLOSE: _close,
+        SSH2_FXP_OPEN: _open,
+        SSH2_FXP_READ: _read,
+        SSH2_FXP_WRITE: _write,
+        SSH2_FXP_MKDIR: _mkdir,
+        SSH2_FXP_RMDIR: _rmdir,
+    }

@@ -1,8 +1,10 @@
-from pysftpserver import SFTPServerStorage,SFTPForbidden
+from pysftpserver import SFTPServerStorage, SFTPForbidden
 import os
 import os.path
 
+
 class SFTPServerVirtualChroot(SFTPServerStorage):
+
     def __init__(self, home):
         self.home = os.path.realpath(home)
         self.parent = os.path.split(self.home)[0]
@@ -12,7 +14,7 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
     def verify(self, filename):
         filename = os.path.realpath(filename)
         if not filename.startswith(self.home + '/') and filename != self.home:
-                raise SFTPForbidden()
+            raise SFTPForbidden()
         return filename
 
     def stat(self, filename, lstat=False):
@@ -21,13 +23,13 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
         else:
             _stat = os.lstat(filename)
         return {
-                   'size': _stat.st_size,
-                   'uid': _stat.st_uid,
-                   'gid': _stat.st_gid,
-                   'mode': _stat.st_mode,
-                   'atime': _stat.st_atime,
-                   'mtime': _stat.st_mtime,
-               }
+            'size': _stat.st_size,
+            'uid': _stat.st_uid,
+            'gid': _stat.st_gid,
+            'mode': _stat.st_mode,
+            'atime': _stat.st_atime,
+            'mtime': _stat.st_mtime,
+        }
 
     def opendir(self, filename):
         return (['.', '..'] + os.listdir(filename)).__iter__()
