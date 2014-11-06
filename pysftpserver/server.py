@@ -163,10 +163,10 @@ class SFTPServer(object):
             if default:
                 filename = default
             else:
-                raise SFTPServerNotFound()
+                raise SFTPNotFound()
         if self.storage.verify(filename):
             return filename
-        raise SFTPServerForbidden()
+        raise SFTPForbidden()
 
     def encode_attrs(self, attrs):
         flags = SSH2_FILEXFER_ATTR_SIZE | SSH2_FILEXFER_ATTR_UIDGID | SSH2_FILEXFER_ATTR_PERMISSIONS | SSH2_FILEXFER_ATTR_ACMODTIME
