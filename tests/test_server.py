@@ -1,10 +1,11 @@
 import unittest
-from pysftpserver.server import *
-from pysftpserver.virtualchroot import *
 import os
-import os.path
 import struct
 import random
+
+from pysftpserver.server import *
+from pysftpserver.virtualchroot import *
+from tests.utils import t_path
 
 
 def _sftpstring(s):
@@ -30,13 +31,11 @@ def _sftphandle(blob):
     slen, = struct.unpack('>I', blob[9:13])
     return blob[13:13 + slen]
 
-basedir = os.getcwd()
-
 
 class ServerTest(unittest.TestCase):
 
     def setUp(self):
-        os.chdir(basedir)
+        os.chdir(t_path())
         self.home = 'testhome'
 
         if not os.path.isdir(self.home):
@@ -47,8 +46,9 @@ class ServerTest(unittest.TestCase):
             raise_on_error=True
         )
 
-        if os.path.exists('foo'):
-            os.rmdir('foo')
+    def tearDown(self):
+        os.chdir(t_path())
+        os.rmdir(self.home)
 
     def test_mkdir(self):
         self.server.input_queue = _sftpcmd(
@@ -57,6 +57,8 @@ class ServerTest(unittest.TestCase):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_MKDIR, _sftpstring('foo'), _sftpint(0))
         self.assertRaises(SFTPException, self.server.process)
+
+        os.rmdir('foo')
 
     def test_mkdir_notfound(self):
         self.server.input_queue = _sftpcmd(
@@ -70,20 +72,26 @@ class ServerTest(unittest.TestCase):
 
     def test_copy_services(self):
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_OPEN, _sftpstring('services'), _sftpint(SSH2_FXF_CREAT), _sftpint(0))
+            SSH2_FXP_OPEN, _sftpstring('services'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
+        )
         self.server.process()
         handle = _sftphandle(self.server.output_queue)
+
         # reset output queue
         self.server.output_queue = ''
         etc_services = open('/etc/services').read()
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_WRITE, _sftpstring(handle), _sftpint64(0), _sftpstring(etc_services))
         self.server.process()
+
         # reset output queue
         self.server.output_queue = ''
         self.server.input_queue = _sftpcmd(SSH2_FXP_CLOSE, _sftpstring(handle))
         self.server.process()
+
         self.assertEqual(etc_services, open('services').read())
+
+        os.unlink('services')
 
 if __name__ == "__main__":
     unittest.main()
