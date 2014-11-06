@@ -1,6 +1,5 @@
-from pysftpserver import SFTPServerStorage, SFTPForbidden
+from pysftpserver.server import SFTPServerStorage, SFTPForbidden
 import os
-import os.path
 
 
 class SFTPServerVirtualChroot(SFTPServerStorage):

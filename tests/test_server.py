@@ -1,5 +1,6 @@
 import unittest
-from pysftpserver import *
+from pysftpserver.server import *
+from pysftpserver.virtualchroot import *
 import os
 import os.path
 import struct
@@ -35,13 +36,17 @@ basedir = os.getcwd()
 class ServerTest(unittest.TestCase):
 
     def setUp(self):
-        global basedir
         os.chdir(basedir)
         self.home = 'testhome'
+
         if not os.path.isdir(self.home):
             os.mkdir(self.home)
+
         self.server = SFTPServer(
-            SFTPServerVirtualChroot(self.home), raise_on_error=True)
+            SFTPServerVirtualChroot(self.home),
+            raise_on_error=True
+        )
+
         if os.path.exists('foo'):
             os.rmdir('foo')
 
@@ -79,10 +84,6 @@ class ServerTest(unittest.TestCase):
         self.server.input_queue = _sftpcmd(SSH2_FXP_CLOSE, _sftpstring(handle))
         self.server.process()
         self.assertEqual(etc_services, open('services').read())
-
-
-def test_suite():
-    return unittest.TestLoader().loadTestsFromName(__name__)
 
 if __name__ == "__main__":
     unittest.main()
