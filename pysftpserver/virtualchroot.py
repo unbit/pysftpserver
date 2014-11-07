@@ -43,6 +43,9 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
     def rmdir(self, filename):
         os.rmdir(filename)
 
+    def rm(self, filename):
+        os.remove(filename)
+
     def write(self, handle, off, chunk):
         os.lseek(handle, off, os.SEEK_SET)
         rlen = os.write(handle, chunk)

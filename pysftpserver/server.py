@@ -11,21 +11,26 @@ SSH2_FX_PERMISSION_DENIED = 3
 SSH2_FX_FAILURE = 4
 SSH2_FX_OP_UNSUPPORTED = 8
 
-SSH2_FXP_INIT = 1
-SSH2_FXP_VERSION = 2
+SSH2_FXP_INIT = 1  # TODO
+SSH2_FXP_VERSION = 2  # TODO
 SSH2_FXP_OPEN = 3
 SSH2_FXP_CLOSE = 4
 SSH2_FXP_READ = 5
 SSH2_FXP_WRITE = 6
 SSH2_FXP_LSTAT = 7
-SSH2_FXP_FSTAT = 8
-SSH2_FXP_FSETSTAT = 10
+SSH2_FXP_FSTAT = 8  # TODO
+SSH2_FXP_SETSTAT = 9  # TODO
+SSH2_FXP_FSETSTAT = 10  # TODO
 SSH2_FXP_OPENDIR = 11
 SSH2_FXP_READDIR = 12
+SSH2_FXP_REMOVE = 13
 SSH2_FXP_MKDIR = 14
 SSH2_FXP_RMDIR = 15
 SSH2_FXP_REALPATH = 16
 SSH2_FXP_STAT = 17
+SSH2_FXP_RENAME = 18  # TODO
+SSH2_FXP_READLINK = 19  # TODO
+SSH2_FXP_SYMLINK = 20  # TODO
 
 SSH2_FXP_STATUS = 101
 SSH2_FXP_HANDLE = 102
@@ -359,6 +364,11 @@ class SFTPServer(object):
         self.storage.rmdir(filename)
         self.send_status(sid, SSH2_FX_OK)
 
+    def _rm(self, sid):
+        filename = self.consume_filename()
+        self.storage.rm(filename)
+        self.send_status(sid, SSH2_FX_OK)
+
     table = {
         SSH2_FXP_REALPATH: _realpath,
         SSH2_FXP_LSTAT: _lstat,
@@ -371,4 +381,5 @@ class SFTPServer(object):
         SSH2_FXP_WRITE: _write,
         SSH2_FXP_MKDIR: _mkdir,
         SSH2_FXP_RMDIR: _rmdir,
+        SSH2_FXP_REMOVE: _rm,
     }

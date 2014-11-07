@@ -118,6 +118,48 @@ class ServerTest(unittest.TestCase):
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 
+    def test_remove(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_OPEN,
+            _sftpstring('services'),
+            _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
+            _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
+            _sftpint(0644)
+        )
+        self.server.process()
+        handle = _sftphandle(self.server.output_queue)
+
+        # reset output queue
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_CLOSE,
+            _sftpstring(handle)
+        )
+        self.server.process()
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_REMOVE,
+            _sftpstring('services'),
+            _sftpint(0)
+        )
+        self.server.process()
+
+    def test_remove_notfound(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_REMOVE,
+            _sftpstring('services'),
+            _sftpint(0)
+        )
+        self.assertRaises(SFTPNotFound, self.server.process)
+
+    def test_remove_forbidden(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_REMOVE,
+            _sftpstring('/etc/services'),
+            _sftpint(0)
+        )
+        self.assertRaises(SFTPForbidden, self.server.process)
+
     def test_mkdir_notfound(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_MKDIR, _sftpstring('bad/ugly'), _sftpint(0))
