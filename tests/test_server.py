@@ -29,9 +29,14 @@ def _sftpcmd(cmd, *args):
     return _sftpint(len(msg)) + msg
 
 
-def _sftphandle(blob):
+def _get_sftphandle(blob):
     slen, = struct.unpack('>I', blob[9:13])
     return blob[13:13 + slen]
+
+
+def _get_sftpint(blob):
+    value, = struct.unpack('>I', blob[5:9])
+    return int(value)
 
 
 def _getUMask():
@@ -87,7 +92,7 @@ class ServerTest(unittest.TestCase):
             _sftpint(0)
         )
         self.server.process()
-        handle = _sftphandle(self.server.output_queue)
+        handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
         self.server.output_queue = ''
@@ -127,7 +132,7 @@ class ServerTest(unittest.TestCase):
             _sftpint(0644)
         )
         self.server.process()
-        handle = _sftphandle(self.server.output_queue)
+        handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
         self.server.output_queue = ''
@@ -165,6 +170,14 @@ class ServerTest(unittest.TestCase):
             SSH2_FXP_MKDIR, _sftpstring('bad/ugly'), _sftpint(0))
         self.assertRaises(SFTPNotFound, self.server.process)
 
+    def test_init(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_INIT, _sftpint(2), _sftpint(0)
+        )
+        self.server.process()
+        version = _get_sftpint(self.server.output_queue)
+        self.assertEqual(version, SSH2_FILEXFER_VERSION)
+
     def test_rmdir_notfound(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_RMDIR, _sftpstring('bad/ugly'), _sftpint(0))
@@ -179,7 +192,7 @@ class ServerTest(unittest.TestCase):
             _sftpint(0644)
         )
         self.server.process()
-        handle = _sftphandle(self.server.output_queue)
+        handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
         self.server.output_queue = ''
