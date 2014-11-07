@@ -8,6 +8,7 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
         self.home = os.path.realpath(home)
         self.parent = os.path.split(self.home)[0]
         os.chdir(self.home)
+        # os.umask(0)
 
     # verify if the absolute path is under the specified dir
     def verify(self, filename):
@@ -33,24 +34,24 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
     def opendir(self, filename):
         return (['.', '..'] + os.listdir(filename)).__iter__()
 
-    def open(self, filename, mode, attrs):
-        return open(filename, mode)
+    def open(self, filename, flags, mode):
+        return os.open(filename, flags, mode)
 
-    def mkdir(self, filename, attrs):
-        os.mkdir(filename)
+    def mkdir(self, filename, mode):
+        os.mkdir(filename, mode)
 
     def rmdir(self, filename):
         os.rmdir(filename)
 
     def write(self, handle, off, chunk):
-        os.lseek(handle.fileno(), off, os.SEEK_SET)
-        rlen = os.write(handle.fileno(), chunk)
+        os.lseek(handle, off, os.SEEK_SET)
+        rlen = os.write(handle, chunk)
         if rlen == len(chunk):
             return True
 
     def read(self, handle, off, size):
-        os.lseek(handle.fileno(), off, os.SEEK_SET)
-        return os.read(handle.fileno(), size)
+        os.lseek(handle, off, os.SEEK_SET)
+        return os.read(handle, size)
 
     def close(self, handle):
         try:

@@ -2,7 +2,6 @@ import os
 import sys
 import select
 import struct
-import os.path
 import errno
 
 SSH2_FX_OK = 0
@@ -43,6 +42,7 @@ SSH2_FXF_WRITE = 0x00000002
 SSH2_FXF_APPEND = 0x00000004
 SSH2_FXF_CREAT = 0x00000008
 SSH2_FXF_TRUNC = 0x00000010
+SSH2_FXF_EXCL = 0x00000020
 
 SSH2_FILEXFER_ATTR_SIZE = 0x00000001
 SSH2_FILEXFER_ATTR_UIDGID = 0x00000002
@@ -79,7 +79,7 @@ class SFTPServer(object):
         self.fd_out = fd_out
         self.buffer_size = 8192
         self.storage = storage
-        self.handles = {}
+        self.handles = dict()
         self.handle_cnt = 0
         self.raise_on_error = raise_on_error
         self.logfile = None
@@ -87,20 +87,25 @@ class SFTPServer(object):
             self.logfile = open(logfile, 'a')
             sys.stderr = self.logfile
 
-    def new_handle(self, filename, flags=0, attrs={}, is_opendir=False):
+    def new_handle(self, filename, flags=0, attrs=dict(), is_opendir=False):
         if is_opendir:
             handle = self.server.opendir(filename)
         else:
-            mode = 'r'
+            os_flags = 0x00000000
+            if flags & SSH2_FXF_READ:
+                os_flags |= os.O_RDONLY
             if flags & SSH2_FXF_WRITE:
-                mode = 'w'
+                os_flags |= os.O_WRONLY
             if flags & SSH2_FXF_APPEND:
-                mode = 'a'
-            if flags & SSH2_FXF_TRUNC:
-                mode = 'w+'
+                os_flags |= os.O_APPEND
             if flags & SSH2_FXF_CREAT:
-                mode = 'w'
-            handle = self.storage.open(filename, mode, attrs)
+                os_flags |= os.O_CREAT
+            if flags & SSH2_FXF_TRUNC and flags & SSH2_FXF_CREAT:
+                os_flags |= os.O_TRUNC
+            if flags & SSH2_FXF_EXCL and flags & SSH2_FXF_CREAT:
+                os_flags |= os.O_EXCL
+            mode = attrs.get('perm', 0666)
+            handle = self.storage.open(filename, os_flags, mode)
 
         if self.handle_cnt == 0xffffffffffffffff:
             raise OverflowError()
@@ -169,8 +174,12 @@ class SFTPServer(object):
         raise SFTPForbidden()
 
     def encode_attrs(self, attrs):
-        flags = SSH2_FILEXFER_ATTR_SIZE | SSH2_FILEXFER_ATTR_UIDGID | SSH2_FILEXFER_ATTR_PERMISSIONS | SSH2_FILEXFER_ATTR_ACMODTIME
-        return struct.pack('>IQIIIII', flags, attrs['size'],
+        flags = SSH2_FILEXFER_ATTR_SIZE | \
+                SSH2_FILEXFER_ATTR_UIDGID | \
+                SSH2_FILEXFER_ATTR_PERMISSIONS | \
+                SSH2_FILEXFER_ATTR_ACMODTIME
+        return struct.pack('>IQIIIII', flags,
+                           attrs['size'],
                            attrs['uid'],
                            attrs['gid'],
                            attrs['mode'],
@@ -248,7 +257,10 @@ class SFTPServer(object):
                                 msg_id, SSH2_FX_NO_SUCH_FILE, SFTPNotFound())
                         else:
                             self.send_status(msg_id, SSH2_FX_FAILURE)
-                    except:
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
+                        print(e)
                         self.send_status(msg_id, SSH2_FX_FAILURE)
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
@@ -304,7 +316,7 @@ class SFTPServer(object):
         self.send_status(sid, SSH2_FX_OK)
 
     def _open(self, sid):
-        filename = self.consume_string()
+        filename = self.consume_filename()
         flags = self.consume_int()
         attrs = self.consume_attrs()
         handle_id = self.new_handle(filename, flags, attrs)
@@ -336,7 +348,10 @@ class SFTPServer(object):
     def _mkdir(self, sid):
         filename = self.consume_filename()
         attrs = self.consume_attrs()
-        self.storage.mkdir(filename, attrs)
+        self.storage.mkdir(
+            filename,
+            attrs.get('perm', 0o777)
+        )
         self.send_status(sid, SSH2_FX_OK)
 
     def _rmdir(self, sid):
