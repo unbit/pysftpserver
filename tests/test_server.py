@@ -39,6 +39,11 @@ def _get_sftpint(blob):
     return int(value)
 
 
+def _get_name(blob):
+    namelen, = struct.unpack('>I', blob[13:17])
+    return blob[17:17 + namelen]
+
+
 def _get_stat(blob):
     attrs = dict()
     attrs['size'], attrs['uid'], \
@@ -409,7 +414,15 @@ class ServerTest(unittest.TestCase):
             SSH2_FXP_SYMLINK, _sftpstring('ugly'), _sftpstring('ugliest'), _sftpint(0))
         self.server.process()
         self.assertIn('ugly', os.listdir('.'))
-        # self.assertRaises(SFTPNotFound, self.server.process)
+
+    def test_readlink(self):
+        os.symlink("infound", "foo")
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_READLINK, _sftpstring('foo'), _sftpint(0))
+        self.server.process()
+        link = _get_name(self.server.output_queue)
+        self.assertEqual(link, "infound")
 
     def test_init(self):
         self.server.input_queue = _sftpcmd(

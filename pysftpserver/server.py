@@ -28,7 +28,7 @@ SSH2_FXP_RMDIR = 15
 SSH2_FXP_REALPATH = 16
 SSH2_FXP_STAT = 17
 SSH2_FXP_RENAME = 18
-SSH2_FXP_READLINK = 19  # TODO
+SSH2_FXP_READLINK = 19
 SSH2_FXP_SYMLINK = 20
 
 SSH2_FXP_VERSION = 2
@@ -259,20 +259,21 @@ class SFTPServer(object):
                     except OSError as e:
                         if e.errno == errno.ENOENT:
                             self.send_status(
-                                msg_id, SSH2_FX_NO_SUCH_FILE, SFTPNotFound())
+                                msg_id, SSH2_FX_NO_SUCH_FILE, SFTPNotFound()
+                            )
                         else:
                             self.send_status(msg_id, SSH2_FX_FAILURE)
                     except Exception as e:
-                        print(e)
                         self.send_status(msg_id, SSH2_FX_FAILURE)
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
 
-    def send_item(self, sid, item):
+    def send_item(self, sid, item, dummy=False):
         msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
         msg += struct.pack('>I', len(item)) + item
         msg += struct.pack('>I', len(item)) + item
-        msg += self.encode_attrs(self.storage.stat(item))
+        if not dummy:  # in case of a readlink response
+            msg += self.encode_attrs(self.storage.stat(item))
         self.send_msg(msg)
 
     def _realpath(self, sid):
@@ -400,6 +401,11 @@ class SFTPServer(object):
         self.storage.symlink(linkpath, targetpath)
         self.send_status(sid, SSH2_FX_OK)
 
+    def _readlink(self, sid):
+        filename = self.consume_filename()
+        link = self.storage.readlink(filename)
+        self.send_item(sid, link, dummy=True)
+
     table = {
         SSH2_FXP_REALPATH: _realpath,
         SSH2_FXP_LSTAT: _lstat,
@@ -418,4 +424,5 @@ class SFTPServer(object):
         SSH2_FXP_FSETSTAT: _fsetstat,
         SSH2_FXP_RENAME: _rename,
         SSH2_FXP_SYMLINK: _symlink,
+        SSH2_FXP_READLINK: _readlink
     }
