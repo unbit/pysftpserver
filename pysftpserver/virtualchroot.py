@@ -17,11 +17,14 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
             raise SFTPForbidden()
         return filename
 
-    def stat(self, filename, lstat=False):
-        if not lstat:
-            _stat = os.stat(filename)
-        else:
+    def stat(self, filename, lstat=False, fstat=False):
+        if not lstat and fstat:
+            # filename is actually an handle
+            _stat = os.fstat(filename)
+        elif lstat:
             _stat = os.lstat(filename)
+        else:
+            _stat = os.stat(filename)
         return {
             'size': _stat.st_size,
             'uid': _stat.st_uid,

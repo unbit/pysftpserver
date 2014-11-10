@@ -39,6 +39,15 @@ def _get_sftpint(blob):
     return int(value)
 
 
+def _get_stat(blob):
+    attrs = dict()
+    attrs['size'], attrs['uid'], \
+        attrs['gid'], attrs['mode'], \
+        attrs['atime'], attrs['mtime'] \
+        = struct.unpack('>QIIIII', blob[13:])
+    return attrs
+
+
 def _getUMask():
     current_umask = os.umask(0)
     os.umask(current_umask)
@@ -112,14 +121,36 @@ class ServerTest(unittest.TestCase):
 
         os.unlink('services')
 
+    def test_fstat(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_OPEN,
+            _sftpstring('services'),
+            _sftpint(SSH2_FXF_CREAT),
+            _sftpint(0)
+        )
+        self.server.process()
+        handle = _get_sftphandle(self.server.output_queue)
+
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_FSTAT,
+            _sftpstring(handle)
+        )
+        self.server.process()
+        stat = _get_stat(self.server.output_queue)
+        self.assertEqual(stat['size'], 0)
+        self.assertEqual(stat['uid'], os.getuid())
+
     def test_open_forbidden(self):
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_OPEN, _sftpstring('/etc/services'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
+            SSH2_FXP_OPEN, _sftpstring(
+                '/etc/services'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_OPEN, _sftpstring('../../foo'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
+            SSH2_FXP_OPEN, _sftpstring(
+                '../../foo'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 

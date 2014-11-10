@@ -17,7 +17,7 @@ SSH2_FXP_CLOSE = 4
 SSH2_FXP_READ = 5
 SSH2_FXP_WRITE = 6
 SSH2_FXP_LSTAT = 7
-SSH2_FXP_FSTAT = 8  # TODO
+SSH2_FXP_FSTAT = 8
 SSH2_FXP_SETSTAT = 9  # TODO
 SSH2_FXP_FSETSTAT = 10  # TODO
 SSH2_FXP_OPENDIR = 11
@@ -295,6 +295,14 @@ class SFTPServer(object):
         msg += self.encode_attrs(attrs)
         self.send_msg(msg)
 
+    def _fstat(self, sid):
+        handle_id = self.consume_string()
+        handle = self.handles[handle_id]
+        attrs = self.storage.stat(handle, fstat=True)
+        msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
+        msg += self.encode_attrs(attrs)
+        self.send_msg(msg)
+
     def _opendir(self, sid):
         filename = self.consume_filename()
         handle_id = self.new_handle(filename, is_opendir=True)
@@ -372,6 +380,7 @@ class SFTPServer(object):
     table = {
         SSH2_FXP_REALPATH: _realpath,
         SSH2_FXP_LSTAT: _lstat,
+        SSH2_FXP_FSTAT: _fstat,
         SSH2_FXP_STAT: _stat,
         SSH2_FXP_OPENDIR: _opendir,
         SSH2_FXP_READDIR: _readdir,
