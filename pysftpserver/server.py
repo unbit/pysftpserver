@@ -27,7 +27,7 @@ SSH2_FXP_MKDIR = 14
 SSH2_FXP_RMDIR = 15
 SSH2_FXP_REALPATH = 16
 SSH2_FXP_STAT = 17
-SSH2_FXP_RENAME = 18  # TODO
+SSH2_FXP_RENAME = 18
 SSH2_FXP_READLINK = 19  # TODO
 SSH2_FXP_SYMLINK = 20  # TODO
 
@@ -387,6 +387,12 @@ class SFTPServer(object):
         self.storage.rm(filename)
         self.send_status(sid, SSH2_FX_OK)
 
+    def _rename(self, sid):
+        oldpath = self.consume_filename()
+        newpath = self.consume_filename()
+        self.storage.rename(oldpath, newpath)
+        self.send_status(sid, SSH2_FX_OK)
+
     table = {
         SSH2_FXP_REALPATH: _realpath,
         SSH2_FXP_LSTAT: _lstat,
@@ -403,4 +409,5 @@ class SFTPServer(object):
         SSH2_FXP_REMOVE: _rm,
         SSH2_FXP_SETSTAT: _setstat,
         SSH2_FXP_FSETSTAT: _fsetstat,
+        SSH2_FXP_RENAME: _rename,
     }

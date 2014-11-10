@@ -329,6 +329,33 @@ class ServerTest(unittest.TestCase):
         )
         self.server.process()
 
+    def test_rename(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_OPEN,
+            _sftpstring('services'),
+            _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
+            _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
+            _sftpint(0644)
+        )
+        self.server.process()
+        handle = _get_sftphandle(self.server.output_queue)
+
+        # reset output queue
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_CLOSE,
+            _sftpstring(handle),
+        )
+        self.server.process()
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_RENAME,
+            _sftpstring('services'),
+            _sftpstring('other_services'),
+        )
+        self.server.process()
+        self.assertIn('other_services', os.listdir('.'))
+
     def test_remove_notfound(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_REMOVE,
@@ -342,6 +369,21 @@ class ServerTest(unittest.TestCase):
             SSH2_FXP_REMOVE,
             _sftpstring('/etc/services'),
             _sftpint(0)
+        )
+        self.assertRaises(SFTPForbidden, self.server.process)
+
+    def test_rename_forbidden(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_RENAME,
+            _sftpstring('services'),
+            _sftpstring('/etc/other_services'),
+        )
+        self.assertRaises(SFTPForbidden, self.server.process)
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_RENAME,
+            _sftpstring('/etc/services'),
+            _sftpstring('/etc/other_services'),
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 
