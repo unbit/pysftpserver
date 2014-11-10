@@ -141,6 +141,155 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(stat['size'], 0)
         self.assertEqual(stat['uid'], os.getuid())
 
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_CLOSE,
+            _sftpstring(handle)
+        )
+        self.server.process()
+
+        os.unlink('services')
+
+    def test_setstat(self):
+        atime = 1415626110
+        mtime = 1415626120
+        size = 10**2
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_OPEN,
+            _sftpstring('services'),
+            _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
+            _sftpint(0)
+        )
+        self.server.process()
+        handle = _get_sftphandle(self.server.output_queue)
+
+        # reset output queue
+        self.server.output_queue = ''
+        etc_services = open('/etc/services').read()
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_WRITE,
+            _sftpstring(handle),
+            _sftpint64(0),
+            _sftpstring(etc_services)
+        )
+        self.server.process()
+
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_SETSTAT,
+            _sftpstring('services'),
+            _sftpint(
+                SSH2_FILEXFER_ATTR_SIZE |
+                SSH2_FILEXFER_ATTR_PERMISSIONS |
+                SSH2_FILEXFER_ATTR_ACMODTIME
+            ),
+            _sftpint64(size),  # 1000 bytes
+            _sftpint(33152),  # 0o100600
+            _sftpint(atime),
+            _sftpint(mtime)
+        )
+        self.server.process()
+
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_CLOSE,
+            _sftpstring(handle)
+        )
+        self.server.process()
+
+        self.assertEqual(
+            0600,
+            stat.S_IMODE(os.lstat('services').st_mode)
+        )
+
+        self.assertEqual(
+            atime,
+            os.lstat('services').st_atime
+        )
+
+        self.assertEqual(
+            mtime,
+            os.lstat('services').st_mtime
+        )
+
+        self.assertEqual(
+            size,
+            os.lstat('services').st_size
+        )
+
+        os.unlink('services')
+
+    def test_fsetstat(self):
+        atime = 1415626110
+        mtime = 1415626120
+        size = 10**2
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_OPEN,
+            _sftpstring('services'),
+            _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
+            _sftpint(0)
+        )
+        self.server.process()
+        handle = _get_sftphandle(self.server.output_queue)
+
+        # reset output queue
+        self.server.output_queue = ''
+        etc_services = open('/etc/services').read()
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_WRITE,
+            _sftpstring(handle),
+            _sftpint64(0),
+            _sftpstring(etc_services)
+        )
+        self.server.process()
+
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_FSETSTAT,
+            _sftpstring(handle),
+            _sftpint(
+                SSH2_FILEXFER_ATTR_SIZE |
+                SSH2_FILEXFER_ATTR_PERMISSIONS |
+                SSH2_FILEXFER_ATTR_ACMODTIME
+            ),
+            _sftpint64(size),  # 1000 bytes
+            _sftpint(33152),  # 0o100600
+            _sftpint(atime),
+            _sftpint(mtime)
+        )
+        self.server.process()
+
+        self.server.output_queue = ''
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_CLOSE,
+            _sftpstring(handle)
+        )
+        self.server.process()
+
+        self.assertEqual(
+            0600,
+            stat.S_IMODE(os.lstat('services').st_mode)
+        )
+
+        # self.assertEqual(
+        #     atime,
+        #     os.lstat('services').st_atime
+        # )
+
+        # self.assertEqual(
+        #     mtime,
+        #     os.lstat('services').st_mtime
+        # )
+
+        self.assertEqual(
+            size,
+            os.lstat('services').st_size
+        )
+
+        os.unlink('services')
+
     def test_open_forbidden(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN, _sftpstring(

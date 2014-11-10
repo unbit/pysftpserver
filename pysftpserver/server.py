@@ -18,8 +18,8 @@ SSH2_FXP_READ = 5
 SSH2_FXP_WRITE = 6
 SSH2_FXP_LSTAT = 7
 SSH2_FXP_FSTAT = 8
-SSH2_FXP_SETSTAT = 9  # TODO
-SSH2_FXP_FSETSTAT = 10  # TODO
+SSH2_FXP_SETSTAT = 9
+SSH2_FXP_FSETSTAT = 10
 SSH2_FXP_OPENDIR = 11
 SSH2_FXP_READDIR = 12
 SSH2_FXP_REMOVE = 13
@@ -187,7 +187,7 @@ class SFTPServer(object):
                            attrs['size'],
                            attrs['uid'],
                            attrs['gid'],
-                           attrs['mode'],
+                           attrs['perm'],
                            attrs['atime'],
                            attrs['mtime'])
 
@@ -263,9 +263,6 @@ class SFTPServer(object):
                         else:
                             self.send_status(msg_id, SSH2_FX_FAILURE)
                     except Exception as e:
-                        import traceback
-                        traceback.print_exc()
-                        print(e)
                         self.send_status(msg_id, SSH2_FX_FAILURE)
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
@@ -302,6 +299,19 @@ class SFTPServer(object):
         msg = struct.pack('>BI', SSH2_FXP_ATTRS, sid)
         msg += self.encode_attrs(attrs)
         self.send_msg(msg)
+
+    def _setstat(self, sid):
+        filename = self.consume_filename()
+        attrs = self.consume_attrs()
+        self.storage.setattrs(filename, attrs)
+        self.send_status(sid, SSH2_FX_OK)
+
+    def _fsetstat(self, sid):
+        handle_id = self.consume_string()
+        handle = self.handles[handle_id]
+        attrs = self.consume_attrs()
+        self.storage.setattrs(handle, attrs, fsetstat=True)
+        self.send_status(sid, SSH2_FX_OK)
 
     def _opendir(self, sid):
         filename = self.consume_filename()
@@ -391,4 +401,6 @@ class SFTPServer(object):
         SSH2_FXP_MKDIR: _mkdir,
         SSH2_FXP_RMDIR: _rmdir,
         SSH2_FXP_REMOVE: _rm,
+        SSH2_FXP_SETSTAT: _setstat,
+        SSH2_FXP_FSETSTAT: _fsetstat,
     }

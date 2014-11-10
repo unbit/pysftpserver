@@ -29,10 +29,32 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
             'size': _stat.st_size,
             'uid': _stat.st_uid,
             'gid': _stat.st_gid,
-            'mode': _stat.st_mode,
+            'perm': _stat.st_mode,
             'atime': _stat.st_atime,
             'mtime': _stat.st_mtime,
         }
+
+    def setattrs(self, filename, attrs, fsetstat=False):
+        if not fsetstat:
+            f = os.open(filename, os.O_WRONLY)
+            chown = os.chown
+            chmod = os.chmod
+        else:  # filename is a fd
+            f = filename
+            chown = os.fchown
+            chmod = os.fchmod
+
+        if 'size' in attrs:
+            os.ftruncate(f, attrs['size'])
+        if all(k in attrs for k in ('uid', 'gid')):
+            chown(filename, attrs['uid'], attrs['gid'])
+        if 'perm' in attrs:
+            chmod(filename, attrs['perm'])
+
+        # Possible FIXME
+        if not fsetstat:  # futime in python 2 doesn't support fds
+            if all(k in attrs for k in ('atime', 'mtime')):
+                os.utime(filename, (attrs['atime'], attrs['mtime']))
 
     def opendir(self, filename):
         return (['.', '..'] + os.listdir(filename)).__iter__()
