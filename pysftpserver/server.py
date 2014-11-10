@@ -29,7 +29,7 @@ SSH2_FXP_REALPATH = 16
 SSH2_FXP_STAT = 17
 SSH2_FXP_RENAME = 18
 SSH2_FXP_READLINK = 19  # TODO
-SSH2_FXP_SYMLINK = 20  # TODO
+SSH2_FXP_SYMLINK = 20
 
 SSH2_FXP_VERSION = 2
 SSH2_FXP_STATUS = 101
@@ -263,6 +263,7 @@ class SFTPServer(object):
                         else:
                             self.send_status(msg_id, SSH2_FX_FAILURE)
                     except Exception as e:
+                        print(e)
                         self.send_status(msg_id, SSH2_FX_FAILURE)
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
@@ -393,6 +394,12 @@ class SFTPServer(object):
         self.storage.rename(oldpath, newpath)
         self.send_status(sid, SSH2_FX_OK)
 
+    def _symlink(self, sid):
+        linkpath = self.consume_filename()
+        targetpath = self.consume_filename()
+        self.storage.symlink(linkpath, targetpath)
+        self.send_status(sid, SSH2_FX_OK)
+
     table = {
         SSH2_FXP_REALPATH: _realpath,
         SSH2_FXP_LSTAT: _lstat,
@@ -410,4 +417,5 @@ class SFTPServer(object):
         SSH2_FXP_SETSTAT: _setstat,
         SSH2_FXP_FSETSTAT: _fsetstat,
         SSH2_FXP_RENAME: _rename,
+        SSH2_FXP_SYMLINK: _symlink,
     }

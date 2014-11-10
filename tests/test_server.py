@@ -392,6 +392,25 @@ class ServerTest(unittest.TestCase):
             SSH2_FXP_MKDIR, _sftpstring('bad/ugly'), _sftpint(0))
         self.assertRaises(SFTPNotFound, self.server.process)
 
+    def test_symlink(self):
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_SYMLINK, _sftpstring('bad/ugly'), _sftpstring('bad/ugliest'), _sftpint(0))
+        self.assertRaises(SFTPNotFound, self.server.process)
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_SYMLINK, _sftpstring('/bad/ugly'), _sftpstring('bad/ugliest'), _sftpint(0))
+        self.assertRaises(SFTPForbidden, self.server.process)
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_SYMLINK, _sftpstring('bad/ugly'), _sftpstring('/bad/ugliest'), _sftpint(0))
+        self.assertRaises(SFTPForbidden, self.server.process)
+
+        self.server.input_queue = _sftpcmd(
+            SSH2_FXP_SYMLINK, _sftpstring('ugly'), _sftpstring('ugliest'), _sftpint(0))
+        self.server.process()
+        self.assertIn('ugly', os.listdir('.'))
+        # self.assertRaises(SFTPNotFound, self.server.process)
+
     def test_init(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_INIT, _sftpint(2), _sftpint(0)

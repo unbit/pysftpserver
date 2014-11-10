@@ -74,6 +74,9 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
     def rename(self, oldpath, newpath):
         os.rename(oldpath, newpath)
 
+    def symlink(self, linkpath, targetpath):
+        os.symlink(targetpath, linkpath)
+
     def write(self, handle, off, chunk):
         os.lseek(handle, off, os.SEEK_SET)
         rlen = os.write(handle, chunk)
