@@ -71,7 +71,7 @@ class ServerTest(unittest.TestCase):
 
         self.server = SFTPServer(
             SFTPServerVirtualChroot(self.home),
-            logfile=t_path("log"),
+            logfile=t_path('log'),
             raise_on_error=True
         )
 
@@ -81,27 +81,27 @@ class ServerTest(unittest.TestCase):
 
     def test_mkdir(self):
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_MKDIR, _sftpstring('foo'), _sftpint(0))
+            SSH2_FXP_MKDIR, _sftpstring(b'foo'), _sftpint(0))
         self.server.process()
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_MKDIR, _sftpstring('foo'), _sftpint(0))
+            SSH2_FXP_MKDIR, _sftpstring(b'foo'), _sftpint(0))
         self.assertRaises(SFTPException, self.server.process)
 
         os.rmdir('foo')
 
     def test_mkdir_forbidden(self):
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_MKDIR, _sftpstring('../foo'), _sftpint(0))
+            SSH2_FXP_MKDIR, _sftpstring(b'../foo'), _sftpint(0))
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_MKDIR, _sftpstring('/foo'), _sftpint(0))
+            SSH2_FXP_MKDIR, _sftpstring(b'/foo'), _sftpint(0))
         self.assertRaises(SFTPForbidden, self.server.process)
 
     def test_open_already_existing(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT),
             _sftpint(0)
         )
@@ -109,7 +109,7 @@ class ServerTest(unittest.TestCase):
         handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_CLOSE,
             _sftpstring(handle)
@@ -118,7 +118,7 @@ class ServerTest(unittest.TestCase):
 
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_EXCL),
             _sftpint(0)
         )
@@ -129,14 +129,14 @@ class ServerTest(unittest.TestCase):
     def test_fstat(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT),
             _sftpint(0)
         )
         self.server.process()
         handle = _get_sftphandle(self.server.output_queue)
 
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_FSTAT,
             _sftpstring(handle)
@@ -146,7 +146,7 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(stat['size'], 0)
         self.assertEqual(stat['uid'], os.getuid())
 
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_CLOSE,
             _sftpstring(handle)
@@ -162,7 +162,7 @@ class ServerTest(unittest.TestCase):
 
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(0)
         )
@@ -170,8 +170,8 @@ class ServerTest(unittest.TestCase):
         handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
-        self.server.output_queue = ''
-        etc_services = open('/etc/services').read()
+        self.server.output_queue = b''
+        etc_services = open('/etc/services', 'rb').read()
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_WRITE,
             _sftpstring(handle),
@@ -180,10 +180,10 @@ class ServerTest(unittest.TestCase):
         )
         self.server.process()
 
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_SETSTAT,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(
                 SSH2_FILEXFER_ATTR_SIZE |
                 SSH2_FILEXFER_ATTR_PERMISSIONS |
@@ -196,7 +196,7 @@ class ServerTest(unittest.TestCase):
         )
         self.server.process()
 
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_CLOSE,
             _sftpstring(handle)
@@ -232,7 +232,7 @@ class ServerTest(unittest.TestCase):
 
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(0)
         )
@@ -240,8 +240,8 @@ class ServerTest(unittest.TestCase):
         handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
-        self.server.output_queue = ''
-        etc_services = open('/etc/services').read()
+        self.server.output_queue = b''
+        etc_services = open('/etc/services', 'rb').read()
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_WRITE,
             _sftpstring(handle),
@@ -250,7 +250,7 @@ class ServerTest(unittest.TestCase):
         )
         self.server.process()
 
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_FSETSTAT,
             _sftpstring(handle),
@@ -266,7 +266,7 @@ class ServerTest(unittest.TestCase):
         )
         self.server.process()
 
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_CLOSE,
             _sftpstring(handle)
@@ -298,20 +298,20 @@ class ServerTest(unittest.TestCase):
     def test_open_forbidden(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN, _sftpstring(
-                '/etc/services'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
+                b'/etc/services'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN, _sftpstring(
-                '../../foo'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
+                b'../../foo'), _sftpint(SSH2_FXF_CREAT), _sftpint(0)
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 
     def test_remove(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
             _sftpint(0o644)
@@ -320,7 +320,7 @@ class ServerTest(unittest.TestCase):
         handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_CLOSE,
             _sftpstring(handle)
@@ -329,7 +329,7 @@ class ServerTest(unittest.TestCase):
 
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_REMOVE,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(0)
         )
         self.server.process()
@@ -337,7 +337,7 @@ class ServerTest(unittest.TestCase):
     def test_rename(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
             _sftpint(0o644)
@@ -346,7 +346,7 @@ class ServerTest(unittest.TestCase):
         handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_CLOSE,
             _sftpstring(handle),
@@ -355,8 +355,8 @@ class ServerTest(unittest.TestCase):
 
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_RENAME,
-            _sftpstring('services'),
-            _sftpstring('other_services'),
+            _sftpstring(b'services'),
+            _sftpstring(b'other_services'),
         )
         self.server.process()
         self.assertIn('other_services', os.listdir('.'))
@@ -364,7 +364,7 @@ class ServerTest(unittest.TestCase):
     def test_remove_notfound(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_REMOVE,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(0)
         )
         self.assertRaises(SFTPNotFound, self.server.process)
@@ -372,7 +372,7 @@ class ServerTest(unittest.TestCase):
     def test_remove_forbidden(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_REMOVE,
-            _sftpstring('/etc/services'),
+            _sftpstring(b'/etc/services'),
             _sftpint(0)
         )
         self.assertRaises(SFTPForbidden, self.server.process)
@@ -380,38 +380,38 @@ class ServerTest(unittest.TestCase):
     def test_rename_forbidden(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_RENAME,
-            _sftpstring('services'),
-            _sftpstring('/etc/other_services'),
+            _sftpstring(b'services'),
+            _sftpstring(b'/etc/other_services'),
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_RENAME,
-            _sftpstring('/etc/services'),
-            _sftpstring('/etc/other_services'),
+            _sftpstring(b'/etc/services'),
+            _sftpstring(b'/etc/other_services'),
         )
         self.assertRaises(SFTPForbidden, self.server.process)
 
     def test_mkdir_notfound(self):
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_MKDIR, _sftpstring('bad/ugly'), _sftpint(0))
+            SSH2_FXP_MKDIR, _sftpstring(b'bad/ugly'), _sftpint(0))
         self.assertRaises(SFTPNotFound, self.server.process)
 
     def test_symlink(self):
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_SYMLINK, _sftpstring('bad/ugly'), _sftpstring('bad/ugliest'), _sftpint(0))
+            SSH2_FXP_SYMLINK, _sftpstring(b'bad/ugly'), _sftpstring(b'bad/ugliest'), _sftpint(0))
         self.assertRaises(SFTPNotFound, self.server.process)
 
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_SYMLINK, _sftpstring('/bad/ugly'), _sftpstring('bad/ugliest'), _sftpint(0))
+            SSH2_FXP_SYMLINK, _sftpstring(b'/bad/ugly'), _sftpstring(b'bad/ugliest'), _sftpint(0))
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_SYMLINK, _sftpstring('bad/ugly'), _sftpstring('/bad/ugliest'), _sftpint(0))
+            SSH2_FXP_SYMLINK, _sftpstring(b'bad/ugly'), _sftpstring(b'/bad/ugliest'), _sftpint(0))
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_SYMLINK, _sftpstring('ugly'), _sftpstring('ugliest'), _sftpint(0))
+            SSH2_FXP_SYMLINK, _sftpstring(b'ugly'), _sftpstring(b'ugliest'), _sftpint(0))
         self.server.process()
         self.assertIn('ugly', os.listdir('.'))
 
@@ -419,10 +419,10 @@ class ServerTest(unittest.TestCase):
         os.symlink("infound", "foo")
 
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_READLINK, _sftpstring('foo'), _sftpint(0))
+            SSH2_FXP_READLINK, _sftpstring(b'foo'), _sftpint(0))
         self.server.process()
         link = _get_name(self.server.output_queue)
-        self.assertEqual(link, "infound")
+        self.assertEqual(link, b"infound")
 
     def test_init(self):
         self.server.input_queue = _sftpcmd(
@@ -434,13 +434,13 @@ class ServerTest(unittest.TestCase):
 
     def test_rmdir_notfound(self):
         self.server.input_queue = _sftpcmd(
-            SSH2_FXP_RMDIR, _sftpstring('bad/ugly'), _sftpint(0))
+            SSH2_FXP_RMDIR, _sftpstring(b'bad/ugly'), _sftpint(0))
         self.assertRaises(SFTPNotFound, self.server.process)
 
     def test_copy_services(self):
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_OPEN,
-            _sftpstring('services'),
+            _sftpstring(b'services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
             _sftpint(0o644)
@@ -449,8 +449,8 @@ class ServerTest(unittest.TestCase):
         handle = _get_sftphandle(self.server.output_queue)
 
         # reset output queue
-        self.server.output_queue = ''
-        etc_services = open('/etc/services').read()
+        self.server.output_queue = b''
+        etc_services = open('/etc/services', 'rb').read()
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_WRITE,
             _sftpstring(handle),
@@ -460,14 +460,14 @@ class ServerTest(unittest.TestCase):
         self.server.process()
 
         # reset output queue
-        self.server.output_queue = ''
+        self.server.output_queue = b''
         self.server.input_queue = _sftpcmd(
             SSH2_FXP_CLOSE,
             _sftpstring(handle)
         )
         self.server.process()
 
-        self.assertEqual(etc_services, open('services').read())
+        self.assertEqual(etc_services, open('services', 'rb').read())
         self.assertEqual(
             0o644,
             stat.S_IMODE(os.lstat('services').st_mode)
@@ -477,6 +477,7 @@ class ServerTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(self):
+        # comment me if you'd like to see the log!
         os.unlink(t_path("log"))
         rmtree(t_path("testhome"), ignore_errors=True)
 

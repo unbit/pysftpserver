@@ -13,6 +13,7 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
             os.umask(umask)
 
     def verify(self, filename):
+        filename = filename.decode()
         # verify if the absolute path is under the specified dir
         filename = os.path.realpath(filename)
         if not filename.startswith(self.home + '/') and filename != self.home:

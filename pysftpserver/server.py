@@ -77,9 +77,9 @@ class SFTPServerStorage(object):
 class SFTPServer(object):
 
     def __init__(self, storage, logfile=None, fd_in=0, fd_out=1, raise_on_error=False):
-        self.input_queue = ''
-        self.output_queue = ''
-        self.payload = ''
+        self.input_queue = b''
+        self.output_queue = b''
+        self.payload = b''
         self.fd_in = fd_in
         self.fd_out = fd_out
         self.buffer_size = 8192
@@ -115,7 +115,7 @@ class SFTPServer(object):
         if self.handle_cnt == 0xffffffffffffffff:
             raise OverflowError()
         self.handle_cnt += 1
-        handle_id = str(self.handle_cnt)
+        handle_id = bytes(self.handle_cnt)
         self.handles[handle_id] = handle
         return handle_id
 
@@ -188,8 +188,8 @@ class SFTPServer(object):
                            attrs['uid'],
                            attrs['gid'],
                            attrs['perm'],
-                           attrs['atime'],
-                           attrs['mtime'])
+                           int(attrs['atime']),
+                           int(attrs['mtime']))
 
     def send_msg(self, msg):
         msg_len = struct.pack('>I', len(msg))
