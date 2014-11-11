@@ -7,7 +7,7 @@ from shutil import rmtree
 
 from pysftpserver.server import *
 from pysftpserver.virtualchroot import *
-from tests.utils import t_path
+from pysftpserver.tests.utils import t_path
 
 
 def _sftpstring(s):
@@ -204,7 +204,7 @@ class ServerTest(unittest.TestCase):
         self.server.process()
 
         self.assertEqual(
-            0o0600,
+            0o600,
             stat.S_IMODE(os.lstat('services').st_mode)
         )
 
@@ -274,7 +274,7 @@ class ServerTest(unittest.TestCase):
         self.server.process()
 
         self.assertEqual(
-            0o0600,
+            0o600,
             stat.S_IMODE(os.lstat('services').st_mode)
         )
 
@@ -314,7 +314,7 @@ class ServerTest(unittest.TestCase):
             _sftpstring('services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
-            _sftpint(0o0644)
+            _sftpint(0o644)
         )
         self.server.process()
         handle = _get_sftphandle(self.server.output_queue)
@@ -340,7 +340,7 @@ class ServerTest(unittest.TestCase):
             _sftpstring('services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
-            _sftpint(0o0644)
+            _sftpint(0o644)
         )
         self.server.process()
         handle = _get_sftphandle(self.server.output_queue)
@@ -443,7 +443,7 @@ class ServerTest(unittest.TestCase):
             _sftpstring('services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
-            _sftpint(0o0644)
+            _sftpint(0o644)
         )
         self.server.process()
         handle = _get_sftphandle(self.server.output_queue)
@@ -469,7 +469,7 @@ class ServerTest(unittest.TestCase):
 
         self.assertEqual(etc_services, open('services').read())
         self.assertEqual(
-            0o0644,
+            0o644,
             stat.S_IMODE(os.lstat('services').st_mode)
         )
 

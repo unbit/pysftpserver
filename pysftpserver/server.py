@@ -109,7 +109,7 @@ class SFTPServer(object):
                 os_flags |= os.O_TRUNC
             if flags & SSH2_FXF_EXCL and flags & SSH2_FXF_CREAT:
                 os_flags |= os.O_EXCL
-            mode = attrs.get('perm', 0666)
+            mode = attrs.get('perm', 0o666)
             handle = self.storage.open(filename, os_flags, mode)
 
         if self.handle_cnt == 0xffffffffffffffff:
@@ -249,7 +249,7 @@ class SFTPServer(object):
                 self.send_msg(msg)
             else:
                 msg_id = self.consume_int()
-                if msg_type in self.table.keys():
+                if msg_type in list(self.table.keys()):
                     try:
                         self.table[msg_type](self, msg_id)
                     except SFTPForbidden as e:
@@ -325,7 +325,7 @@ class SFTPServer(object):
     def _readdir(self, sid):
         handle = self.consume_handle()
         try:
-            item = handle.next()
+            item = next(handle)
         except StopIteration:
             self.send_status(sid, SSH2_FX_EOF)
             return

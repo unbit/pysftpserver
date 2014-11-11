@@ -5,14 +5,15 @@ import os
 
 class SFTPServerVirtualChroot(SFTPServerStorage):
 
-    def __init__(self, home):
+    def __init__(self, home, umask=None):
         self.home = os.path.realpath(home)
         self.parent = os.path.split(self.home)[0]
         os.chdir(self.home)
-        # os.umask(0)
+        if umask:
+            os.umask(umask)
 
-    # verify if the absolute path is under the specified dir
     def verify(self, filename):
+        # verify if the absolute path is under the specified dir
         filename = os.path.realpath(filename)
         if not filename.startswith(self.home + '/') and filename != self.home:
             raise SFTPForbidden()

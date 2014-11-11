@@ -1,4 +1,7 @@
 __pycache__
 *.pyc
-tests/testhome/
+pysftpserver/tests/testhome/
 .noseids
+dist/
+/*.egg-info
+build/
