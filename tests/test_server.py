@@ -204,7 +204,7 @@ class ServerTest(unittest.TestCase):
         self.server.process()
 
         self.assertEqual(
-            0600,
+            0o0600,
             stat.S_IMODE(os.lstat('services').st_mode)
         )
 
@@ -274,19 +274,19 @@ class ServerTest(unittest.TestCase):
         self.server.process()
 
         self.assertEqual(
-            0600,
+            0o0600,
             stat.S_IMODE(os.lstat('services').st_mode)
         )
 
-        # self.assertEqual(
-        #     atime,
-        #     os.lstat('services').st_atime
-        # )
+        self.assertEqual(
+            atime,
+            os.lstat('services').st_atime
+        )
 
-        # self.assertEqual(
-        #     mtime,
-        #     os.lstat('services').st_mtime
-        # )
+        self.assertEqual(
+            mtime,
+            os.lstat('services').st_mtime
+        )
 
         self.assertEqual(
             size,
@@ -314,7 +314,7 @@ class ServerTest(unittest.TestCase):
             _sftpstring('services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
-            _sftpint(0644)
+            _sftpint(0o0644)
         )
         self.server.process()
         handle = _get_sftphandle(self.server.output_queue)
@@ -340,7 +340,7 @@ class ServerTest(unittest.TestCase):
             _sftpstring('services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
-            _sftpint(0644)
+            _sftpint(0o0644)
         )
         self.server.process()
         handle = _get_sftphandle(self.server.output_queue)
@@ -443,7 +443,7 @@ class ServerTest(unittest.TestCase):
             _sftpstring('services'),
             _sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
             _sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
-            _sftpint(0644)
+            _sftpint(0o0644)
         )
         self.server.process()
         handle = _get_sftphandle(self.server.output_queue)
@@ -469,7 +469,7 @@ class ServerTest(unittest.TestCase):
 
         self.assertEqual(etc_services, open('services').read())
         self.assertEqual(
-            0644,
+            0o0644,
             stat.S_IMODE(os.lstat('services').st_mode)
         )
 

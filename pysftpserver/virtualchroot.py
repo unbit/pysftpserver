@@ -1,4 +1,5 @@
 from pysftpserver.server import SFTPServerStorage, SFTPForbidden
+from pysftpserver.futimes import futimes
 import os
 
 
@@ -51,10 +52,11 @@ class SFTPServerVirtualChroot(SFTPServerStorage):
         if 'perm' in attrs:
             chmod(filename, attrs['perm'])
 
-        # Possible FIXME
-        if not fsetstat:  # futime in python 2 doesn't support fds
-            if all(k in attrs for k in ('atime', 'mtime')):
+        if all(k in attrs for k in ('atime', 'mtime')):
+            if not fsetstat:
                 os.utime(filename, (attrs['atime'], attrs['mtime']))
+            else:
+                futimes(filename, (attrs['atime'], attrs['mtime']))
 
     def opendir(self, filename):
         return (['.', '..'] + os.listdir(filename)).__iter__()
