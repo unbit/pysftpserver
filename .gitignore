@@ -5,3 +5,4 @@ pysftpserver/tests/testhome/
 dist/
 /*.egg-info
 build/
+.coverage

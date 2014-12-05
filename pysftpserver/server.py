@@ -1,8 +1,20 @@
+"""
+The server.
+Handle requests, deliver them to the storage and then return the status.
+
+Python 2/3 compatibility:
+    pysftpserver natively speaks bytes.
+    So make sure to correctly handle them, specifically in Python 3.
+    In addiction, please note that arguments passed to the storage are in bytes too.
+"""
+
 import os
 import sys
 import select
 import struct
 import errno
+
+from pysftpserver.pysftpexceptions import *
 
 SSH2_FX_OK = 0
 SSH2_FX_EOF = 1
@@ -56,24 +68,6 @@ SSH2_FILEXFER_ATTR_ACMODTIME = 0x00000008
 SSH2_FILEXFER_ATTR_EXTENDED = 0x80000000
 
 
-class SFTPException(Exception):
-
-    def __init__(self, msg=None):
-        self.msg = msg
-
-
-class SFTPForbidden(SFTPException):
-    pass
-
-
-class SFTPNotFound(SFTPException):
-    pass
-
-
-class SFTPServerStorage(object):
-    pass
-
-
 class SFTPServer(object):
 
     def __init__(self, storage, logfile=None, fd_in=0, fd_out=1, raise_on_error=False):
@@ -94,7 +88,7 @@ class SFTPServer(object):
 
     def new_handle(self, filename, flags=0, attrs=dict(), is_opendir=False):
         if is_opendir:
-            handle = self.server.opendir(filename)
+            handle = self.storage.opendir(filename)
         else:
             os_flags = 0x00000000
             if flags & SSH2_FXF_READ:
@@ -305,14 +299,14 @@ class SFTPServer(object):
     def _setstat(self, sid):
         filename = self.consume_filename()
         attrs = self.consume_attrs()
-        self.storage.setattrs(filename, attrs)
+        self.storage.setstat(filename, attrs)
         self.send_status(sid, SSH2_FX_OK)
 
     def _fsetstat(self, sid):
         handle_id = self.consume_string()
         handle = self.handles[handle_id]
         attrs = self.consume_attrs()
-        self.storage.setattrs(handle, attrs, fsetstat=True)
+        self.storage.setstat(handle, attrs, fsetstat=True)
         self.send_status(sid, SSH2_FX_OK)
 
     def _opendir(self, sid):
@@ -326,11 +320,9 @@ class SFTPServer(object):
         handle = self.consume_handle()
         try:
             item = next(handle)
+            self.send_item(sid, item)
         except StopIteration:
             self.send_status(sid, SSH2_FX_EOF)
-            return
-
-        self.send_item(sid, item)
 
     def _close(self, sid):
         # here we need to hold the handle id
