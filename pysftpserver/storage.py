@@ -2,10 +2,11 @@
 
 import os
 import itertools
+from pysftpserver.abstractstorage import SFTPAbstractServerStorage
 from pysftpserver.futimes import futimes
 
 
-class SFTPServerStorage(object):
+class SFTPServerStorage(SFTPAbstractServerStorage):
     """Simple storage class. Subclass it and override the methods."""
 
     def __init__(self, home, umask=None):
