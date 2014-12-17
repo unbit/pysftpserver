@@ -280,7 +280,7 @@ In this way, running `python setup.py install` will put it somewhere in your `$P
 That's it!
 
 ####Code used in this example
-All the code used in this example can be found in the [`mongodb`](https://github.com/unbit/pysftpserver/tree/mongodb) branch of this repository.
+All the code used in this example can be found in the [`examples/mongodb_gridfs`](examples/mongodb_gridfs/) directory of this repository.
 
 ##Tests
 You can use [nose](https://nose.readthedocs.org/en/latest/) for tests.
