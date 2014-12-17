@@ -91,9 +91,11 @@ class SFTPServer(object):
             handle = self.storage.opendir(filename)
         else:
             os_flags = 0x00000000
-            if flags & SSH2_FXF_READ:
+            if flags & SSH2_FXF_READ and flags & SSH2_FXF_WRITE:
+                os_flags |= os.O_RDWR
+            elif flags & SSH2_FXF_READ:
                 os_flags |= os.O_RDONLY
-            if flags & SSH2_FXF_WRITE:
+            elif flags & SSH2_FXF_WRITE:
                 os_flags |= os.O_WRONLY
             if flags & SSH2_FXF_APPEND:
                 os_flags |= os.O_APPEND

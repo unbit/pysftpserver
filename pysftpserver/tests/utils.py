@@ -53,3 +53,8 @@ def get_sftpstat(blob):
         attrs['atime'], attrs['mtime'] \
         = struct.unpack('>QIIIII', blob[13:])
     return attrs
+
+
+def get_sftpdata(blob):
+    datalen, = struct.unpack('>I', blob[9:13])
+    return blob[13: 13 + datalen]

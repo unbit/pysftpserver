@@ -468,7 +468,7 @@ class ServerTest(unittest.TestCase):
         self.server.input_queue = sftpcmd(
             SSH2_FXP_OPEN,
             sftpstring(b'services'),
-            sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
+            sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE | SSH2_FXF_READ),
             sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
             sftpint(0o644)
         )
@@ -478,6 +478,8 @@ class ServerTest(unittest.TestCase):
         # reset output queue
         self.server.output_queue = b''
         etc_services = open('/etc/services', 'rb').read()
+        etc_services_size = \
+            os.lstat('/etc/services').st_size  # size of the whole file
         self.server.input_queue = sftpcmd(
             SSH2_FXP_WRITE,
             sftpstring(handle),
@@ -489,21 +491,55 @@ class ServerTest(unittest.TestCase):
         # reset output queue
         self.server.output_queue = b''
         self.server.input_queue = sftpcmd(
+            SSH2_FXP_READ,
+            sftpstring(handle),
+            sftpint64(0),
+            sftpint(
+                etc_services_size
+            )
+        )
+        self.server.process()
+        data = get_sftpdata(self.server.output_queue)
+
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_READ,
+            sftpstring(handle),
+            sftpint64(etc_services_size),
+            sftpint(1)  # wait for the EOF
+        )
+        # EOF status is raised as an exception
+        self.assertRaises(SFTPException, self.server.process)
+
+        # reset output queue
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
             SSH2_FXP_CLOSE,
             sftpstring(handle)
         )
         self.server.process()
 
-        self.assertEqual(etc_services, open('services', 'rb').read())
+        self.assertEqual(
+            etc_services,
+            open('services', 'rb').read()
+        )
+        self.assertEqual(
+            etc_services,
+            data
+        )
         self.assertEqual(
             0o644,
             stat.S_IMODE(os.lstat('services').st_mode)
+        )
+        self.assertEqual(
+            etc_services_size,
+            os.lstat('services').st_size
         )
 
         os.unlink('services')
 
     @classmethod
-    def tearDownClass(self):
+    def tearDownClass(cls):
         os.unlink(t_path("log"))  # comment me to see the log!
         rmtree(t_path("home"), ignore_errors=True)
 
