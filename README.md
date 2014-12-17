@@ -4,7 +4,7 @@ An OpenSSH SFTP wrapper written in Python.
 ##Features
 * Possibility to [automatically jail users](#authorized_keys_magic) in a virtual chroot environment as soon as they login.
 * Compatible with both Python 2 and Python 3.
-* Fully extensible and customizable.
+* Fully extensible and customizable (examples below).
 * Totally conforms to the [SFTP RFC](https://filezilla-project.org/specs/draft-ietf-secsh-filexfer-02.txt).
 
 ##Installation
@@ -16,6 +16,7 @@ $ pip install pysftpserver # add the --user flag to install it just for you
 Otherwise, you could always clone this repository and manually launch `setup.py`:
 ```bash
 $ git clone https://github.com/unbit/pysftpserver.git
+$ cd pysftpserver
 $ python setup.py install
 ```
 
