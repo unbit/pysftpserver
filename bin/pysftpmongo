@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+"""pysftpmongo executable."""
+
+import argparse
+from pysftpserver.server import SFTPServer
+from pysftpserver.mongostorage import SFTPServerMongoStorage
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='An OpenSSH SFTP server wrapper that uses a MongoDB/GridFS storage.'
+    )
+
+    parser.add_argument('remote', type=str,
+                        help='the remote address of the MongoDB instance')
+    parser.add_argument('port', type=int,
+                        help='the remote port of the MongoDB instance')
+    parser.add_argument('db_name', type=str,
+                        help='the name of the DB to use')
+    parser.add_argument('--logfile', '-l', dest='logfile',
+                        help='path to the logfile')
+
+    args = parser.parse_args()
+    SFTPServer(
+        storage=SFTPServerMongoStorage(
+            args.remote,
+            args.port,
+            args.db_name
+        ),
+        logfile=args.logfile
+    ).run()
+
+
+if __name__ == '__main__':
+    main()
