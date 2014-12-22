@@ -269,14 +269,19 @@ if __name__ == '__main__':
     main()
 ```
 
-Now, `chmod` the binary and launch it:
+Now, `chmod` the binary and check that it starts without a hitch:
 ```bash
 $ chmod +x bin/pysftpmongo
 $ bin/pysftpmongo "localhost" 1727 "mydb"
 ```
 
-Optionally, you could even edit the `setup.py` `scripts` field to include your new binary. 
-In this way, running `python setup.py install` will put it somewhere in your `$PATH`, for later ease: e.g. when [using it in the authorized_keys file](#authorized_keys_magic).
+Finally, you should edit the `setup.py` `scripts` field to include your new binary. 
+Now, running `python setup.py install` will put it somewhere in your `$PATH`, for later ease: e.g. when [using it in the authorized_keys file](#authorized_keys_magic).
+
+A sneak peek of the final result (in the `authorized_keys` file):
+```
+command="pysftpmongo REMOTE_TO_YOUR_DB REMOTE_PORT DB_NAME",no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-rsa AAAAB3[... and so on]
+```
 
 That's it!
 
