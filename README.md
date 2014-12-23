@@ -101,11 +101,13 @@ import gridfs
 class SFTPServerMongoStorage(SFTPAbstractServerStorage):
     """MongoDB GridFS SFTP storage class."""
 
-    def __init__(self, remote, port, db_name):
+    def __init__(self, home, remote, port, db_name):
         """Home sweet home.
 
+        NOTE: you should set your home to something reasonable.
         Instruct the client to connect to your MongoDB.
         """
+        self.home = "/"
         client = pymongo.MongoClient(remote, port)
         db = client[db_name]
         self.gridfs = gridfs.GridFS(db)

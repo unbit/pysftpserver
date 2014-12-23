@@ -174,7 +174,9 @@ class SFTPServer(object):
 
     def consume_filename(self, default=None):
         filename = self.consume_string()
-        if len(filename) == 0:
+        if filename == b'.':
+            filename = self.storage.home.encode()
+        elif len(filename) == 0:
             if default:
                 filename = default
             else:
@@ -287,7 +289,7 @@ class SFTPServer(object):
         self.send_msg(msg)
 
     def _realpath(self, sid):
-        filename = self.consume_filename('.')
+        filename = self.consume_filename(default=b'.')
         self.send_item(sid, filename)
 
     def _stat(self, sid):

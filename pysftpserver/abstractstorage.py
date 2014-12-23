@@ -4,7 +4,7 @@
 class SFTPAbstractServerStorage:
     """Abstract storage class. Subclass it and override the methods."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, home, **kwargs):
         """Home sweet home.
 
         Init your class here.
