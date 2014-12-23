@@ -28,11 +28,16 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
         """
         return True
 
-    def stat(self, filename, lstat=False, fstat=False):
+    def stat(self, filename, lstat=False, fstat=False, parent=None):
         """stat, lstat and fstat requests.
 
         Return a dictionary of stats.
         Filename is an handle in the fstat variant.
+        If parent is not None, then filename is inside parent,
+        and a join is needed.
+        This happens in case of readdir responses:
+        a filename (not a path) has to be returned,
+        but the stat call need (obviously) a full path.
         """
         if not lstat and fstat:
             # filename is an handle
@@ -40,7 +45,10 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
         elif lstat:
             _stat = os.lstat(filename)
         else:
-            _stat = os.stat(filename)
+            _stat = os.stat(
+                filename if not parent
+                else os.path.join(parent, filename)
+            )
 
         return {
             'size': _stat.st_size,

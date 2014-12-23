@@ -79,6 +79,7 @@ class SFTPServer(object):
         self.buffer_size = 8192
         self.storage = storage
         self.handles = dict()
+        self.dirs = dict()  # keep the path of opened dirs to reconstruct it later
         self.handle_cnt = 0
         self.raise_on_error = raise_on_error
         self.logfile = None
@@ -112,7 +113,11 @@ class SFTPServer(object):
             raise OverflowError()
         self.handle_cnt += 1
         handle_id = bytes(self.handle_cnt)
+
         self.handles[handle_id] = handle
+        if (is_opendir):
+            self.dirs[handle_id] = filename
+
         return handle_id
 
     def log(self, txt):
@@ -140,6 +145,10 @@ class SFTPServer(object):
     def consume_handle(self):
         handle_id = self.consume_string()
         return self.handles[handle_id]
+
+    def consume_handle_and_id(self):
+        handle_id = self.consume_string()
+        return self.handles[handle_id], handle_id
 
     def consume_attrs(self):
         attrs = {}
@@ -264,12 +273,17 @@ class SFTPServer(object):
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
 
-    def send_item(self, sid, item, dummy=False):
+    def send_item(self, sid, item, parent_dir=None, dummy=False):
         msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
         msg += struct.pack('>I', len(item)) + item
         msg += struct.pack('>I', len(item)) + item
         if not dummy:  # in case of a readlink response
-            msg += self.encode_attrs(self.storage.stat(item))
+            if parent_dir:  # in case of readdir response
+                attrs = self.storage.stat(item, parent=parent_dir)
+            else:
+                attrs = self.storage.stat(item)
+            msg += self.encode_attrs(attrs)
+
         self.send_msg(msg)
 
     def _realpath(self, sid):
@@ -319,10 +333,10 @@ class SFTPServer(object):
         self.send_msg(msg)
 
     def _readdir(self, sid):
-        handle = self.consume_handle()
+        handle, handle_id = self.consume_handle_and_id()
         try:
             item = next(handle)
-            self.send_item(sid, item)
+            self.send_item(sid, item, parent_dir=self.dirs[handle_id])
         except StopIteration:
             self.send_status(sid, SSH2_FX_EOF)
 
@@ -331,7 +345,13 @@ class SFTPServer(object):
         handle_id = self.consume_string()
         handle = self.handles[handle_id]
         self.storage.close(handle)
+
         del(self.handles[handle_id])
+        try:
+            del(self.dirs[handle_id])
+        except KeyError:
+            pass  # it wasn't an opened dir
+
         self.send_status(sid, SSH2_FX_OK)
 
     def _open(self, sid):

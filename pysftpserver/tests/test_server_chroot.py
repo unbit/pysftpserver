@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import unittest
 import os
 import stat
@@ -295,6 +297,46 @@ class ServerTest(unittest.TestCase):
                 b'../../foo'), sftpint(SSH2_FXF_CREAT), sftpint(0)
         )
         self.assertRaises(SFTPForbidden, self.server.process)
+
+    def test_read_subdir(self):
+        f = {b'.', b'..', b'bar'}  # files inside foo
+        os.mkdir("foo")
+        foobar_path = os.path.join("foo", "bar")
+        with open(foobar_path, 'a') as stream:
+            print("foobar", file=stream)
+        # bar_size = os.lstat(foobar_path).st_size
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPENDIR,
+            sftpstring(b'foo')
+        )
+        self.server.process()
+        handle = get_sftphandle(self.server.output_queue)
+
+        l = set()
+        while (True):
+            # reset output queue
+            self.server.output_queue = b''
+            self.server.input_queue = sftpcmd(
+                SSH2_FXP_READDIR,
+                sftpstring(handle),
+            )
+            try:
+                self.server.process()
+                filename = get_sftpname(self.server.output_queue)
+                l.add(filename)
+            except:
+                break
+        self.assertEqual(l, f)
+
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_CLOSE,
+            sftpstring(handle),
+        )
+        self.server.process()
+
+        rmtree("foo")
 
     def test_remove(self):
         self.server.input_queue = sftpcmd(
