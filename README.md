@@ -290,6 +290,11 @@ That's it!
 ####Code used in this example
 All the code used in this example can be found in the [`examples/mongodb_gridfs`](examples/mongodb_gridfs/) directory of this repository.
 
+##FileZilla compatibility
+FileZilla requires the `longname` returned with each `SSH2_FXP_NAME` response (e.g. each time `readdir` is called) to be a string of the same format of the output of `ls -l` (`-rw-r--r--  1 aldur staff 9596 Dec 29 18:36 README.md`).
+
+So, if you want to keep compatibility with FileZilla, be sure to include a proper `longname` field to the stats dictionary you return from your storage, as we do [here](pysftpserver/storage.py#L78).
+
 ##Tests
 You can use [nose](https://nose.readthedocs.org/en/latest/) for tests.
 From the project directory, simply run:
