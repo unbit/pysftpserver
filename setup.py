@@ -10,7 +10,7 @@ def readme():
 
 setup(
 	name='pysftpserver',
-	version='1.2.0',
+	version='1.3.0',
 	description='An OpenSSH SFTP wrapper in Python.',
 	long_description=readme(),
 	url='https://github.com/unbit/pysftpserver',
