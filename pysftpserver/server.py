@@ -106,7 +106,7 @@ class SFTPServer(object):
                 os_flags |= os.O_TRUNC
             if flags & SSH2_FXF_EXCL and flags & SSH2_FXF_CREAT:
                 os_flags |= os.O_EXCL
-            mode = attrs.get('perm', 0o666)
+            mode = attrs.get(b'perm', 0o666)
             handle = self.storage.open(filename, os_flags, mode)
 
         if self.handle_cnt == 0xffffffffffffffff:
@@ -154,19 +154,19 @@ class SFTPServer(object):
         attrs = {}
         flags = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_SIZE:
-            attrs['size'] = self.consume_int64()
+            attrs[b'size'] = self.consume_int64()
         if flags & SSH2_FILEXFER_ATTR_UIDGID:
-            attrs['uid'] = self.consume_int()
-            attrs['gid'] = self.consume_int()
+            attrs[b'uid'] = self.consume_int()
+            attrs[b'gid'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_PERMISSIONS:
-            attrs['perm'] = self.consume_int()
+            attrs[b'perm'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_ACMODTIME:
-            attrs['atime'] = self.consume_int()
-            attrs['mtime'] = self.consume_int()
+            attrs[b'atime'] = self.consume_int()
+            attrs[b'mtime'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_EXTENDED:
             count = self.consume_int()
             if count:
-                attrs['extended'] = [
+                attrs[b'extended'] = [
                     {self.consume_string(): self.consume_string()}
                     for i in range(count)
                 ]
@@ -192,12 +192,12 @@ class SFTPServer(object):
                 SSH2_FILEXFER_ATTR_PERMISSIONS | \
                 SSH2_FILEXFER_ATTR_ACMODTIME
         return struct.pack('>IQIIIII', flags,
-                           attrs['size'],
-                           attrs['uid'],
-                           attrs['gid'],
-                           attrs['perm'],
-                           int(attrs['atime']),
-                           int(attrs['mtime']))
+                           attrs[b'size'],
+                           attrs[b'uid'],
+                           attrs[b'gid'],
+                           attrs[b'perm'],
+                           int(attrs[b'atime']),
+                           int(attrs[b'mtime']))
 
     def send_msg(self, msg):
         msg_len = struct.pack('>I', len(msg))
@@ -286,8 +286,8 @@ class SFTPServer(object):
         msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
         msg += struct.pack('>I', len(item)) + item  # filename
 
-        if 'longname' in attrs and attrs['longname']:  # longname
-            longname = attrs['longname']
+        if b'longname' in attrs and attrs[b'longname']:  # longname
+            longname = attrs[b'longname']
         else:
             longname = item
         msg += struct.pack('>I', len(longname)) + longname
@@ -303,8 +303,8 @@ class SFTPServer(object):
         msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
         msg += struct.pack('>I', len(item)) + item  # filename
 
-        if 'longname' in attrs and attrs['longname']:  # longname
-            longname = attrs['longname']
+        if b'longname' in attrs and attrs[b'longname']:  # longname
+            longname = attrs[b'longname']
         else:
             longname = item
         msg += struct.pack('>I', len(longname)) + longname
@@ -415,7 +415,7 @@ class SFTPServer(object):
         attrs = self.consume_attrs()
         self.storage.mkdir(
             filename,
-            attrs.get('perm', 0o777)
+            attrs.get(b'perm', 0o777)
         )
         self.send_status(sid, SSH2_FX_OK)
 

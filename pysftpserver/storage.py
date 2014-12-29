@@ -54,8 +54,8 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
                 )
             except:
                 # we could have a broken symlink
-                # but lstat could be foo:
-                # this happens in case of each readdir response
+                # but lstat could be false:
+                # this happens in case of readdir responses
                 _stat = os.lstat(
                     filename if not parent
                     else os.path.join(parent, filename)
@@ -69,13 +69,13 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
             )
 
         return {
-            'size': _stat.st_size,
-            'uid': _stat.st_uid,
-            'gid': _stat.st_gid,
-            'perm': _stat.st_mode,
-            'atime': _stat.st_atime,
-            'mtime': _stat.st_mtime,
-            'longname': longname
+            b'size': _stat.st_size,
+            b'uid': _stat.st_uid,
+            b'gid': _stat.st_gid,
+            b'perm': _stat.st_mode,
+            b'atime': _stat.st_atime,
+            b'mtime': _stat.st_mtime,
+            b'longname': longname
         }
 
     def setstat(self, filename, attrs, fsetstat=False):
@@ -94,18 +94,18 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
             chown = os.fchown
             chmod = os.fchmod
 
-        if 'size' in attrs:
-            os.ftruncate(f, attrs['size'])
-        if all(k in attrs for k in ('uid', 'gid')):
-            chown(filename, attrs['uid'], attrs['gid'])
-        if 'perm' in attrs:
-            chmod(filename, attrs['perm'])
+        if b'size' in attrs:
+            os.ftruncate(f, attrs[b'size'])
+        if all(k in attrs for k in (b'uid', b'gid')):
+            chown(filename, attrs[b'uid'], attrs[b'gid'])
+        if b'perm' in attrs:
+            chmod(filename, attrs[b'perm'])
 
-        if all(k in attrs for k in ('atime', 'mtime')):
+        if all(k in attrs for k in (b'atime', b'mtime')):
             if not fsetstat:
-                os.utime(filename, (attrs['atime'], attrs['mtime']))
+                os.utime(filename, (attrs[b'atime'], attrs[b'mtime']))
             else:
-                futimes(filename, (attrs['atime'], attrs['mtime']))
+                futimes(filename, (attrs[b'atime'], attrs[b'mtime']))
 
     def opendir(self, filename):
         """Return an iterator over the files in filename."""

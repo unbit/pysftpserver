@@ -493,6 +493,48 @@ class ServerTest(unittest.TestCase):
         link = get_sftpname(self.server.output_queue)
         self.assertEqual(link, b"infound")
 
+    def test_readdir_broken_symlink(self):
+        os.symlink("infound", "foo")
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_READLINK, sftpstring(b'foo'), sftpint(0))
+        self.server.process()
+        link = get_sftpname(self.server.output_queue)
+        self.assertEqual(link, b"infound")
+        self.server.output_queue = b''
+
+        f = {b'.', b'..', b'foo'}
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPENDIR,
+            sftpstring(b'.')
+        )
+        self.server.process()
+
+        handle = get_sftphandle(self.server.output_queue)
+
+        l = set()
+        while (True):
+            # reset output queue
+            self.server.output_queue = b''
+            self.server.input_queue = sftpcmd(
+                SSH2_FXP_READDIR,
+                sftpstring(handle),
+            )
+            try:
+                self.server.process()
+                filename = get_sftpname(self.server.output_queue)
+                l.add(filename)
+            except:
+                break
+        self.assertEqual(l, f)
+
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_CLOSE,
+            sftpstring(handle),
+        )
+        self.server.process()
+
     def test_init(self):
         self.server.input_queue = sftpcmd(
             SSH2_FXP_INIT, sftpint(2), sftpint(0)
