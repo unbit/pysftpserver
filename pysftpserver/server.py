@@ -165,11 +165,12 @@ class SFTPServer(object):
             attrs['mtime'] = self.consume_int()
         if flags & SSH2_FILEXFER_ATTR_EXTENDED:
             count = self.consume_int()
-            if count > 0:
-                attrs['extended'] = []
-            for i in range(0, count):
-                attrs['extended'].append(
-                    {self.consume_string(): self.consume_string()})
+            if count:
+                attrs['extended'] = [
+                    {self.consume_string(): self.consume_string()}
+                    for i in range(count)
+                ]
+
         return attrs
 
     def consume_filename(self, default=None):
@@ -275,17 +276,40 @@ class SFTPServer(object):
                 else:
                     self.send_status(msg_id, SSH2_FX_OP_UNSUPPORTED)
 
-    def send_item(self, sid, item, parent_dir=None, dummy=False):
-        msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
-        msg += struct.pack('>I', len(item)) + item
-        msg += struct.pack('>I', len(item)) + item
-        if not dummy:  # in case of a readlink response
-            if parent_dir:  # in case of readdir response
-                attrs = self.storage.stat(item, parent=parent_dir)
-            else:
-                attrs = self.storage.stat(item)
-            msg += self.encode_attrs(attrs)
+    def send_dummy_item(self, sid, item, filename):
+        # In case of readlink responses
+        # There's no need to add the attrs,
+        # But longname is still needed
+        # item is the linked and filename is the link
+        attrs = self.storage.stat(filename, lstat=True)
 
+        msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
+        msg += struct.pack('>I', len(item)) + item  # filename
+
+        if 'longname' in attrs and attrs['longname']:  # longname
+            longname = attrs['longname']
+        else:
+            longname = item
+        msg += struct.pack('>I', len(longname)) + longname
+
+        self.send_msg(msg)
+
+    def send_item(self, sid, item, parent_dir=None):
+        if parent_dir:  # in case of readdir response
+            attrs = self.storage.stat(item, parent=parent_dir)
+        else:
+            attrs = self.storage.stat(item)
+
+        msg = struct.pack('>BII', SSH2_FXP_NAME, sid, 1)
+        msg += struct.pack('>I', len(item)) + item  # filename
+
+        if 'longname' in attrs and attrs['longname']:  # longname
+            longname = attrs['longname']
+        else:
+            longname = item
+        msg += struct.pack('>I', len(longname)) + longname
+
+        msg += self.encode_attrs(attrs)
         self.send_msg(msg)
 
     def _realpath(self, sid):
@@ -420,7 +444,7 @@ class SFTPServer(object):
     def _readlink(self, sid):
         filename = self.consume_filename()
         link = self.storage.readlink(filename)
-        self.send_item(sid, link, dummy=True)
+        self.send_dummy_item(sid, link, filename)
 
     table = {
         SSH2_FXP_REALPATH: _realpath,

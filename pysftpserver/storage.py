@@ -2,8 +2,10 @@
 
 import os
 import itertools
+
 from pysftpserver.abstractstorage import SFTPAbstractServerStorage
 from pysftpserver.futimes import futimes
+from pysftpserver.stat_helpers import stat_to_longname
 
 
 class SFTPServerStorage(SFTPAbstractServerStorage):
@@ -50,6 +52,13 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
                 else os.path.join(parent, filename)
             )
 
+        if fstat:
+            longname = None  # not needed in case of fstat
+        else:
+            longname = stat_to_longname(  # see stat_helpers.py
+                _stat, filename
+            )
+
         return {
             'size': _stat.st_size,
             'uid': _stat.st_uid,
@@ -57,6 +66,7 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
             'perm': _stat.st_mode,
             'atime': _stat.st_atime,
             'mtime': _stat.st_mtime,
+            'longname': longname
         }
 
     def setstat(self, filename, attrs, fsetstat=False):
