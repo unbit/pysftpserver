@@ -47,10 +47,19 @@ class SFTPServerStorage(SFTPAbstractServerStorage):
         elif lstat:
             _stat = os.lstat(filename)
         else:
-            _stat = os.stat(
-                filename if not parent
-                else os.path.join(parent, filename)
-            )
+            try:
+                _stat = os.stat(
+                    filename if not parent
+                    else os.path.join(parent, filename)
+                )
+            except:
+                # we could have a broken symlink
+                # but lstat could be foo:
+                # this happens in case of each readdir response
+                _stat = os.lstat(
+                    filename if not parent
+                    else os.path.join(parent, filename)
+                )
 
         if fstat:
             longname = None  # not needed in case of fstat
