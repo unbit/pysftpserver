@@ -14,7 +14,7 @@ import select
 import struct
 import errno
 
-from pysftpserver.pysftpexceptions import *
+from pysftpserver.pysftpexceptions import SFTPException, SFTPForbidden, SFTPNotFound
 
 SSH2_FX_OK = 0
 SSH2_FX_EOF = 1
@@ -188,9 +188,9 @@ class SFTPServer(object):
 
     def encode_attrs(self, attrs):
         flags = SSH2_FILEXFER_ATTR_SIZE | \
-                SSH2_FILEXFER_ATTR_UIDGID | \
-                SSH2_FILEXFER_ATTR_PERMISSIONS | \
-                SSH2_FILEXFER_ATTR_ACMODTIME
+            SSH2_FILEXFER_ATTR_UIDGID | \
+            SSH2_FILEXFER_ATTR_PERMISSIONS | \
+            SSH2_FILEXFER_ATTR_ACMODTIME
         return struct.pack('>IQIIIII', flags,
                            attrs[b'size'],
                            attrs[b'uid'],
