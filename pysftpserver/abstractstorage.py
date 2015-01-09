@@ -17,7 +17,7 @@ class SFTPAbstractServerStorage:
         """
         return True
 
-    def stat(self, filename, lstat=False, fstat=False):
+    def stat(self, filename, parent=None, lstat=False, fstat=False):
         """stat, lstat and fstat requests.
 
         Return a dictionary of stats.

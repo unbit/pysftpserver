@@ -64,9 +64,14 @@ def stat_to_longname(st, filename):
     Encoding side: unicode sandwich.
     """
 
+    try:
+        n_link = str(st.st_nlink)
+    except:  # Some stats (e.g. SFTPAttributes of paramiko) don't have this
+        n_link = str('1')
+
     longname = [
         filemode(st.st_mode).decode(),
-        str(st.st_nlink),
+        n_link,
         pwd.getpwuid(st.st_uid)[0],
         grp.getgrgid(st.st_gid)[0],
         str(st.st_size),
