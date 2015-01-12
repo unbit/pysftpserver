@@ -53,6 +53,10 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
 
         self.client = paramiko.SFTPClient.from_transport(transport)
 
+        # Let's retrieve the current dir
+        self.client.chdir('.')
+        self.home = self.client.getcwd()
+
     def verify(self, filename):
         """Verify that requested filename is accessible.
 
@@ -81,7 +85,7 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
                 # we could have a broken symlink
                 # but lstat could be false:
                 # this happens in case of readdir responses
-                _stat = self.client.stat(
+                _stat = self.client.lstat(
                     filename if not parent
                     else os.path.join(parent, filename)
                 )
@@ -109,27 +113,27 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
         Filename is an handle in the fstat variant.
         """
 
-        if 'size' in attrs and not fsetstat:
-            self.client.truncate(filename, attrs['size'])
-        elif 'size' in attrs:
-            filename.truncate(attrs['size'])
+        if b'size' in attrs and not fsetstat:
+            self.client.truncate(filename, attrs[b'size'])
+        elif b'size' in attrs:
+            filename.truncate(attrs[b'size'])
 
-        _chown = all(k in attrs for k in ('uid', 'gid'))
+        _chown = all(k in attrs for k in (b'uid', b'gid'))
         if _chown and not fsetstat:
-            self.client.chown(filename, attrs['uid'], attrs['gid'])
+            self.client.chown(filename, attrs[b'uid'], attrs[b'gid'])
         elif _chown:
-            filename.chown(attrs['uid'], attrs['gid'])
+            filename.chown(attrs[b'uid'], attrs[b'gid'])
 
-        if 'perm' in attrs and not fsetstat:
-            self.client.chmod(filename, attrs['perm'])
-        elif 'perm' in attrs:
-            filename.chmod(attrs['perm'])
+        if b'perm' in attrs and not fsetstat:
+            self.client.chmod(filename, attrs[b'perm'])
+        elif b'perm' in attrs:
+            filename.chmod(attrs[b'perm'])
 
-        _utime = all(k in attrs for k in ('atime', 'mtime'))
+        _utime = all(k in attrs for k in (b'atime', b'mtime'))
         if _utime and not fsetstat:
-            self.client.utime(filename, (attrs['atime'], attrs['mtime']))
+            self.client.utime(filename, (attrs[b'atime'], attrs[b'mtime']))
         elif _utime:
-            filename.utime((attrs['atime'], attrs['mtime']))
+            filename.utime((attrs[b'atime'], attrs[b'mtime']))
 
     def opendir(self, filename):
         """Return an iterator over the files in filename."""
@@ -170,7 +174,7 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
 
     def symlink(self, linkpath, targetpath):
         """Symlink file."""
-        self.client.symlink(linkpath, targetpath)
+        self.client.symlink(targetpath, linkpath)
 
     def readlink(self, filename):
         """Readlink of filename."""

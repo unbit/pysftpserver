@@ -223,7 +223,7 @@ class TestProxyServer(unittest.TestCase):
                 SSH2_FILEXFER_ATTR_PERMISSIONS |
                 SSH2_FILEXFER_ATTR_ACMODTIME
             ),
-            sftpint64(size),  # 1000 bytes
+            sftpint64(size),  # 100 bytes
             sftpint(33152),  # 0o100600
             sftpint(atime),
             sftpint(mtime)
@@ -364,6 +364,276 @@ class TestProxyServer(unittest.TestCase):
         self.server.process()
 
         rmtree(remote_file("foo"))
+
+    def test_remove(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPEN,
+            sftpstring(b'services'),
+            sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
+            sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
+            sftpint(0o644)
+        )
+        self.server.process()
+        handle = get_sftphandle(self.server.output_queue)
+
+        # reset output queue
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_CLOSE,
+            sftpstring(handle)
+        )
+        self.server.process()
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_REMOVE,
+            sftpstring(b'services'),
+            sftpint(0)
+        )
+        self.server.process()
+
+    def test_rename(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPEN,
+            sftpstring(b'services'),
+            sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE),
+            sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
+            sftpint(0o644)
+        )
+        self.server.process()
+        handle = get_sftphandle(self.server.output_queue)
+
+        # reset output queue
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_CLOSE,
+            sftpstring(handle),
+        )
+        self.server.process()
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_RENAME,
+            sftpstring(b'services'),
+            sftpstring(b'other_services'),
+        )
+        self.server.process()
+        self.assertIn('other_services', os.listdir(REMOTE_ROOT))
+
+        os.unlink(remote_file('other_services'))
+
+    def test_remove_notfound(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_REMOVE,
+            sftpstring(b'services'),
+            sftpint(0)
+        )
+        self.assertRaises(SFTPNotFound, self.server.process)
+
+    def test_mkdir_notfound(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_MKDIR, sftpstring(b'bad/ugly'), sftpint(0))
+        self.assertRaises(SFTPNotFound, self.server.process)
+
+    def test_readdir(self):
+        f = {b'.', b'..', b'foo', b'bar'}
+        os.mkdir(remote_file("foo"))
+        os.close(os.open(remote_file("bar"), os.O_CREAT))
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPENDIR,
+            sftpstring(b'.')
+        )
+        self.server.process()
+
+        handle = get_sftphandle(self.server.output_queue)
+
+        l = set()
+        while (True):
+            # reset output queue
+            self.server.output_queue = b''
+            self.server.input_queue = sftpcmd(
+                SSH2_FXP_READDIR,
+                sftpstring(handle),
+            )
+            try:
+                self.server.process()
+                filename = get_sftpname(self.server.output_queue)
+                l.add(filename)
+            except:
+                break
+        self.assertEqual(l, f)
+
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_CLOSE,
+            sftpstring(handle),
+        )
+        self.server.process()
+
+        os.unlink(remote_file("bar"))
+        os.rmdir(remote_file("foo"))
+
+    def test_symlink(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_SYMLINK, sftpstring(b'bad/ugly'), sftpstring(b'bad/ugliest'), sftpint(0))
+        self.assertRaises(SFTPNotFound, self.server.process)
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_SYMLINK, sftpstring(b'ugly'), sftpstring(b'ugliest'), sftpint(0))
+        self.server.process()
+        self.assertIn('ugly', os.listdir(REMOTE_ROOT))
+
+    def test_readlink(self):
+        os.symlink("infound", remote_file("foo"))
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_READLINK, sftpstring(b'foo'), sftpint(0))
+        self.server.process()
+        link = get_sftpname(self.server.output_queue)
+        self.assertEqual(link, b"infound")
+
+    def test_readdir_broken_symlink(self):
+        os.symlink("infound", remote_file("foo"))
+
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_READLINK, sftpstring(b'foo'), sftpint(0))
+        self.server.process()
+        link = get_sftpname(self.server.output_queue)
+        self.assertEqual(link, b"infound")
+        self.server.output_queue = b''
+
+        f = {b'.', b'..', b'foo'}
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPENDIR,
+            sftpstring(b'.')
+        )
+        self.server.process()
+        handle = get_sftphandle(self.server.output_queue)
+
+        l = set()
+        while (True):
+            # reset output queue
+            self.server.output_queue = b''
+            self.server.input_queue = sftpcmd(
+                SSH2_FXP_READDIR,
+                sftpstring(handle),
+            )
+            try:
+                self.server.process()
+                filename = get_sftpname(self.server.output_queue)
+                l.add(filename)
+            except:
+                break
+        self.assertEqual(l, f)
+
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_CLOSE,
+            sftpstring(handle),
+        )
+        self.server.process()
+
+    def test_init(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_INIT, sftpint(2), sftpint(0)
+        )
+        self.server.process()
+        version = get_sftpint(self.server.output_queue)
+        self.assertEqual(version, SSH2_FILEXFER_VERSION)
+
+    def test_rmdir_notfound(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_RMDIR, sftpstring(b'bad/ugly'), sftpint(0))
+        self.assertRaises(SFTPNotFound, self.server.process)
+
+    def test_copy_services(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPEN,
+            sftpstring(b'services'),
+            sftpint(SSH2_FXF_CREAT | SSH2_FXF_WRITE | SSH2_FXF_READ),
+            sftpint(SSH2_FILEXFER_ATTR_PERMISSIONS),
+            sftpint(0o644)
+        )
+        self.server.process()
+        handle = get_sftphandle(self.server.output_queue)
+
+        # reset output queue
+        self.server.output_queue = b''
+        etc_services = open('/etc/services', 'rb').read()
+        etc_services_size = \
+            os.lstat('/etc/services').st_size  # size of the whole file
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_WRITE,
+            sftpstring(handle),
+            sftpint64(0),
+            sftpstring(etc_services)
+        )
+        self.server.process()
+
+        # reset output queue
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_READ,
+            sftpstring(handle),
+            sftpint64(0),
+            sftpint(
+                etc_services_size
+            )
+        )
+        self.server.process()
+        data = get_sftpdata(self.server.output_queue)
+
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_READ,
+            sftpstring(handle),
+            sftpint64(etc_services_size),
+            sftpint(1)  # wait for the EOF
+        )
+        # EOF status is raised as an exception
+        self.assertRaises(SFTPException, self.server.process)
+
+        # reset output queue
+        self.server.output_queue = b''
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_CLOSE,
+            sftpstring(handle)
+        )
+        self.server.process()
+
+        r_services = remote_file('services')
+        self.assertEqual(
+            etc_services,
+            open(r_services, 'rb').read()
+        )
+        self.assertEqual(
+            etc_services,
+            data
+        )
+        self.assertEqual(
+            0o644,
+            stat.S_IMODE(os.lstat(r_services).st_mode)
+        )
+        self.assertEqual(
+            etc_services_size,
+            os.lstat(r_services).st_size
+        )
+
+        os.unlink(r_services)
+
+    def tearDown(self):
+        """Clean any leftover."""
+        for f in os.listdir(LOCAL_ROOT):
+            try:
+                os.unlink(f)
+            except:
+                rmtree(f)
+
+        for f in os.listdir(REMOTE_ROOT):
+            f = remote_file(f)
+            try:
+                os.unlink(f)
+            except:
+                rmtree(f)
 
     @classmethod
     def teardown_class(cls):
