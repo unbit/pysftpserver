@@ -365,6 +365,15 @@ class TestProxyServer(unittest.TestCase):
 
         rmtree(remote_file("foo"))
 
+    def test_open_not_found(self):
+        self.server.input_queue = sftpcmd(
+            SSH2_FXP_OPEN,
+            sftpstring(b'services'),
+            sftpint(SSH2_FXF_READ),
+            sftpint(0),
+        )
+        self.assertRaises(SFTPNotFound, self.server.process)
+
     def test_remove(self):
         self.server.input_queue = sftpcmd(
             SSH2_FXP_OPEN,

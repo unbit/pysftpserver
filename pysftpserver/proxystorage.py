@@ -8,6 +8,25 @@ from pysftpserver.stat_helpers import stat_to_longname
 import os
 
 
+def exception_wrapper(method):
+    """
+    The server class needs not found exceptions to be instances of OSError.
+    In Python 3, IOError (thrown by paramiko on fail) is a subclass of OSError.
+    In Python 2 instaead, IOError and OSError both derive from EnvironmentError.
+    So let's wrap it!
+    """
+    def _wrapper(*args, **kwargs):
+        try:
+            return method(*args, **kwargs)
+        except IOError as e:
+            if not isinstance(e, OSError):
+                raise OSError(e.errno, e.strerror)
+            else:
+                raise e
+
+    return _wrapper
+
+
 class SFTPServerProxyStorage(SFTPAbstractServerStorage):
     """Proxy SFTP storage.
     Uses a Paramiko client to forward requests to another SFTP server.
@@ -64,6 +83,7 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
         """
         return True
 
+    @exception_wrapper
     def stat(self, filename, parent=None, lstat=False, fstat=False):
         """stat, lstat and fstat requests.
 
@@ -107,6 +127,7 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
             b'longname': longname
         }
 
+    @exception_wrapper
     def setstat(self, filename, attrs, fsetstat=False):
         """setstat and fsetstat requests.
 
@@ -135,10 +156,12 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
         elif _utime:
             filename.utime((attrs[b'atime'], attrs[b'mtime']))
 
+    @exception_wrapper
     def opendir(self, filename):
         """Return an iterator over the files in filename."""
         return (f.encode() for f in self.client.listdir(filename) + ['.', '..'])
 
+    @exception_wrapper
     def open(self, filename, flags, mode):
         """Return the file handle.
 
@@ -156,26 +179,32 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
         paramiko_mode = SFTPServerProxyStorage.flags_to_mode(flags, mode)
         return self.client.open(filename, paramiko_mode)
 
+    @exception_wrapper
     def mkdir(self, filename, mode):
         """Create directory with given mode."""
         self.client.mkdir(filename, mode)
 
+    @exception_wrapper
     def rmdir(self, filename):
         """Remove directory."""
         self.client.rmdir(filename)
 
+    @exception_wrapper
     def rm(self, filename):
         """Remove file."""
         self.client.remove(filename)
 
+    @exception_wrapper
     def rename(self, oldpath, newpath):
         """Move/rename file."""
         self.client.rename(oldpath, newpath)
 
+    @exception_wrapper
     def symlink(self, linkpath, targetpath):
         """Symlink file."""
         self.client.symlink(targetpath, linkpath)
 
+    @exception_wrapper
     def readlink(self, filename):
         """Readlink of filename."""
         l = self.client.readlink(filename)
@@ -196,6 +225,7 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
         handle.seek(off)
         return handle.read(size)
 
+    @exception_wrapper
     def close(self, handle):
         """Close the file handle."""
         handle.close()
