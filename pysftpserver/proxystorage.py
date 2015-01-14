@@ -6,6 +6,9 @@ from pysftpserver.abstractstorage import SFTPAbstractServerStorage
 from pysftpserver.stat_helpers import stat_to_longname
 
 import os
+import sys
+import socket
+from getpass import getuser
 
 
 def exception_wrapper(method):
@@ -61,16 +64,155 @@ class SFTPServerProxyStorage(SFTPAbstractServerStorage):
 
         return paramiko_mode
 
-    def __init__(self, remote, user, password, port=22):
-        # TODO: SSH agent, pk authentication, and so on...
+    def __init__(self, remote,
+                 key=None, port=None,
+                 ssh_config_path=None, ssh_agent=False,
+                 known_hosts_path=None):
         """Home sweet home.
 
         Init the transport and then the client.
         """
-        transport = paramiko.Transport((remote, port))
-        transport.connect(username=user, password=password)
+        if '@' in remote:
+            self.username, self.hostname = remote.split('@', 1)
+        else:
+            self.username, self.hostname = None, remote
 
-        self.client = paramiko.SFTPClient.from_transport(transport)
+        self.password = None
+        if self.username and ':' in self.username:
+            self.username, self.password = self.username.split(':', 1)
+
+        self.port = None
+
+        if ssh_config_path:
+            try:
+                with open(os.path.expanduser(ssh_config_path)) as c_file:
+                    ssh_config = paramiko.SSHConfig()
+                    ssh_config.parse(c_file)
+                    c = ssh_config.lookup(self.hostname)
+
+                    self.hostname = c.get("hostname", self.hostname)
+                    self.username = c.get("user", self.username)
+                    self.port = int(c.get("port", port))
+                    key = c.get("identityfile", key)
+            except Exception as e:
+                # it could be safe to continue anyway,
+                # because parameters could have been manually specified
+                print(
+                    "Error while parsing ssh_config file: {}. Trying to continue anyway...".format(e)
+                )
+
+        # Set default values
+        if not self.username:
+            self.username = getuser()  # defaults to current user
+
+        if not self.port:
+            self.port = port if port else 22
+
+        self.pkeys = list()
+        if ssh_agent:
+            try:
+                agent = paramiko.agent.Agent()
+                self.pkeys.append(*agent.get_keys())
+
+                if not self.pkeys:
+                    agent.close()
+                    print(
+                        "SSH agent didn't provide any valid key. Trying to continue..."
+                    )
+
+            except paramiko.SSHException:
+                agent.close()
+                print(
+                    "SSH agent speaks a non-compatible protocol. Ignoring it.")
+
+        if key and not self.password and not self.pkeys:
+            key = os.path.expanduser(key)
+            try:
+                self.pkeys.append(paramiko.RSAKey.from_private_key_file(key))
+            except paramiko.PasswordRequiredException:
+                print("It seems that your private key is encrypted. Please configure me to use ssh_agent.")
+                sys.exit(1)
+            except Exception:
+                print(
+                    "Something went wrong while opening {}. Exiting.".format(
+                        key)
+                )
+                sys.exit(1)
+        elif not key and not self.password and not self.pkeys:
+            print(
+                "You need to specify either a password, an identity or to enable the ssh-agent support."
+            )
+            sys.exit(1)
+
+        try:
+            self.transport = paramiko.Transport((self.hostname, self.port))
+        except socket.gaierror:
+            print(
+                "Hostname not known. Are you sure you inserted it correctly?")
+            sys.exit(1)
+
+        try:
+            self.transport.start_client()
+
+            if known_hosts_path:
+                known_hosts = paramiko.HostKeys()
+                known_hosts_path = os.path.realpath(
+                    os.path.expanduser(known_hosts_path))
+
+                try:
+                    known_hosts.load(known_hosts_path)
+                except IOError:
+                    print(
+                        "Error while loading known hosts file at {}. Exiting...".format(
+                            known_hosts_path)
+                    )
+                    sys.exit(1)
+
+                ssh_host = self.hostname if self.port == 22 else "[{}]:{}".format(
+                    self.hostname, self.port)
+                pub_k = self.transport.get_remote_server_key()
+                if ssh_host in known_hosts.keys() and not known_hosts.check(ssh_host, pub_k):
+                    print(
+                        "Security warning: "
+                        "remote key fingerprint {} for hostname "
+                        "{} didn't match the one in known_hosts {}. "
+                        "Exiting...".format(
+                            pub_k.get_base64(),
+                            ssh_host,
+                            known_hosts.lookup(self.hostname),
+                        )
+                    )
+                    sys.exit(1)
+
+            if self.password:
+                self.transport.auth_password(
+                    username=self.username,
+                    password=self.password
+                )
+            else:
+                for pkey in self.pkeys:
+                    try:
+                        self.transport.auth_publickey(
+                            username=self.username,
+                            key=pkey
+                        )
+                        break
+                    except paramiko.SSHException as e:
+                        print(
+                            "Authentication with identity {}... failed".format(
+                                pkey.get_base64()[:10]
+                            )
+                        )
+                else:  # none of the keys worked
+                    raise paramiko.SSHException
+        except paramiko.SSHException:
+            print(
+                "None of the provided authentication methods worked. Exiting."
+            )
+            self.transport.close()
+            sys.exit(1)
+
+        self.client = paramiko.SFTPClient.from_transport(self.transport)
 
         # Let's retrieve the current dir
         self.client.chdir('.')

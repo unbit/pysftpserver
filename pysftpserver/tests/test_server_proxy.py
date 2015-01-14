@@ -39,7 +39,7 @@ def _start_sftp_server():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.setblocking(0)
-    sock.bind(('localhost', 2222))
+    sock.bind(('localhost', 2223))
     sock.listen(10)
 
     reads = {sock}
@@ -98,10 +98,8 @@ class TestProxyServer(unittest.TestCase):
         """Before running each test, create a server instance and create the required directories."""
         self.server = SFTPServer(
             SFTPServerProxyStorage(
-                "localhost",
-                "test",
-                "secret",
-                2222
+                "test:secret@localhost",
+                port=2223
             ),
             logfile=t_path('log'),
             raise_on_error=True

@@ -3,6 +3,7 @@ An OpenSSH SFTP wrapper written in Python.
 
 ##Features
 * Possibility to [automatically jail users](#authorized_keys_magic) in a virtual chroot environment as soon as they login.
+* Possibility to automatically forward SFTP requests to another server.
 * Compatible with both Python 2 and Python 3.
 * Fully extensible and customizable (examples below).
 * Totally conforms to the [SFTP RFC](https://filezilla-project.org/specs/draft-ietf-secsh-filexfer-02.txt).
@@ -21,11 +22,15 @@ $ python setup.py install
 ```
 
 ##Usage
-We provide, as a fully working example, an SFTP storage that jails users in a virtual chroot environment.
+We provide a couple of fully working examples:
 
-You can use it by launching `pysftpjail` with the following options:
+* **pysftpjail**: an SFTP storage that jails users in a virtual chroot environment.
+* **pysftpproxy**: an SFTP storage that acts as a proxy, forwarding each request to another SFTP server.
+
+You'll find both our storages in your `$PATH` after the installation, so you can simply launch them by using the appropriate command line executable / arguments:
+
 ```
-pysftpjail -h
+$ pysftpjail -h
 
 usage: pysftpjail [-h] [--logfile LOGFILE] [--umask UMASK] chroot
 
@@ -40,6 +45,40 @@ optional arguments:
                         path to the logfile
   --umask UMASK, -u UMASK
                         set the umask of the SFTP server
+```
+
+```
+$ pysftpproxy -h
+
+usage: pysftpproxy [-h] [-l LOGFILE] [-k private-key-path] [-p PORT] [-a]
+                   [-c ssh config path] [-n known_hosts path] [-d]
+                   user[:password]@hostname
+
+An OpenSSH SFTP server proxy that forwards each request to a remote server.
+
+positional arguments:
+  user[:password]@hostname
+                        the ssh-url ([user[:password]@]hostname) of the remote
+                        server. The hostname can be specified as a
+                        ssh_config's hostname too. Every missing information
+                        will be gathered from there
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -l LOGFILE, --logfile LOGFILE
+                        path to the logfile
+  -k private-key-path, --key private-key-path
+                        private key identity path (defaults to ~/.ssh/id_rsa)
+  -p PORT, --port PORT  SSH remote port (defaults to 22)
+  -a, --ssh-agent       enable ssh-agent support
+  -c ssh config path, --ssh-config ssh config path
+                        path to the ssh-configuration file (default to
+                        ~/.ssh/config)
+  -n known_hosts path, --known-hosts known_hosts path
+                        path to the openSSH known_hosts file
+  -d, --disable-known-hosts
+                        disable known_hosts fingerprint checking (security
+                        warning!)
 ```
 
 ###authorized_keys magic
@@ -58,6 +97,8 @@ Achieving as final result:
 ```
 command="pysftpjail path_to_your_jail",no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-rsa AAAAB3[... and so on]
 ```
+
+Obviusly, you could do the same with `pysftpproxy`.
 
 ##Customization
 We provide two complete examples of SFTP storage: simple and jailed.

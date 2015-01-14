@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+"""pysftpproxy executable."""
+
+import argparse
+from pysftpserver.server import SFTPServer
+from pysftpserver.proxystorage import SFTPServerProxyStorage
+
+
+def create_parser():
+    """Create the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description='An OpenSSH SFTP server proxy that forwards each request to a remote server.'
+    )
+
+    parser.add_argument(
+        "remote",
+        type=str,
+        metavar="user[:password]@hostname",
+        help="the ssh-url ([user[:password]@]hostname) of the remote server. "
+             "The hostname can be specified as a ssh_config's hostname too. "
+             "Every missing information will be gathered from there",
+    )
+
+    parser.add_argument(
+        '-l',
+        '--logfile',
+        dest='logfile',
+        help='path to the logfile'
+    )
+
+    parser.add_argument(
+        "-k",
+        "--key",
+        metavar="private-key-path",
+        default="~/.ssh/id_rsa",
+        type=str,
+        help="private key identity path (defaults to ~/.ssh/id_rsa)"
+    )
+
+    parser.add_argument(
+        "-p",
+        "--port",
+        default=22,
+        type=int,
+        help="SSH remote port (defaults to 22)"
+    )
+
+    parser.add_argument(
+        "-a",
+        "--ssh-agent",
+        action="store_true",
+        help="enable ssh-agent support"
+    )
+
+    parser.add_argument(
+        "-c",
+        "--ssh-config",
+        metavar="ssh config path",
+        default="~/.ssh/config",
+        type=str,
+        help="path to the ssh-configuration file (default to ~/.ssh/config)"
+    )
+
+    parser.add_argument(
+        "-n",
+        "--known-hosts",
+        metavar="known_hosts path",
+        default="~/.ssh/known_hosts",
+        type=str,
+        help="path to the openSSH known_hosts file"
+    )
+
+    parser.add_argument(
+        "-d",
+        "--disable-known-hosts",
+        action="store_true",
+        help="disable known_hosts fingerprint checking (security warning!)"
+    )
+    return parser
+
+
+def main(args=None):
+    parser = create_parser()
+    args = vars(parser.parse_args(args))
+
+    args_mapping = {
+        "ssh_config": "ssh_config_path",
+        "known_hosts": "known_hosts_path"
+    }
+
+    kwargs = {  # convert the argument names to class constructor parameters
+        args_mapping[k]: v
+        for k, v in args.items()
+        if v and k in args_mapping
+    }
+
+    kwargs.update({
+        k: v
+        for k, v in args.items()
+        if v and k not in args_mapping
+    })
+
+    # Special case: disable known_hosts check
+    if args['disable_known_hosts']:
+        kwargs['known_hosts_path'] = None
+        del(kwargs['disable_known_hosts'])
+
+    if 'logfile' in kwargs:
+        logfile = kwargs['logfile']
+        del(kwargs['logfile'])
+    else:
+        logfile = None
+
+    SFTPServer(
+        storage=SFTPServerProxyStorage(
+            **kwargs
+        ),
+        logfile=logfile
+    ).run()
+
+
+if __name__ == '__main__':
+    main()
