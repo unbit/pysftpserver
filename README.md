@@ -3,7 +3,7 @@ An OpenSSH SFTP wrapper written in Python.
 
 ##Features
 * Possibility to [automatically jail users](#authorized_keys_magic) in a virtual chroot environment as soon as they login.
-* Possibility to automatically forward SFTP requests to another server.
+* Possibility to [automatically forward SFTP requests to another server](#usage).
 * Compatible with both Python 2 and Python 3.
 * Fully extensible and customizable (examples below).
 * Totally conforms to the [SFTP RFC](https://filezilla-project.org/specs/draft-ietf-secsh-filexfer-02.txt).
@@ -12,6 +12,11 @@ An OpenSSH SFTP wrapper written in Python.
 Simply install pysftpserver with pip:
 ```bash
 $ pip install pysftpserver # add the --user flag to install it just for you
+```
+
+**Note**: if you'd like to use the [automatic forwarding storage](#usage) you have to explicitly specify the paramiko dependency:
+```bash
+$ pip install pysftpserver[pysftpproxy]
 ```
 
 Otherwise, you could always clone this repository and manually launch `setup.py`:

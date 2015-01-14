@@ -2,8 +2,17 @@
 """pysftpproxy executable."""
 
 import argparse
+import sys
+
+try:
+    import paramiko
+except:
+    print("You installed pysftpserver without the paramiko optional dependency, so you can't use pysftpproxy.")
+    sys.exit(1)
+
 from pysftpserver.server import SFTPServer
 from pysftpserver.proxystorage import SFTPServerProxyStorage
+
 
 
 def create_parser():

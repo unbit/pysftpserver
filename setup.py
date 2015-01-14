@@ -21,9 +21,12 @@ setup(
 
     packages=['pysftpserver'],
     scripts=['bin/pysftpjail', 'bin/pysftpproxy'],
-    install_requires=['paramiko', ],
     test_suite='nose.collector',
-    tests_require=['nose'],
+    tests_require=['nose', 'paramiko'],
+
+    extras_require={
+        'pysftpproxy': ["paramiko", ],
+    },
 
     keywords=["pysftpserver", "sftp", "openssh", "ssh", 'jail'],
     classifiers=[
