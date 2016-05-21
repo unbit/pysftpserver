@@ -7,3 +7,4 @@ dist/
 build/
 .coverage
 .ropeproject/
+.DS_Store

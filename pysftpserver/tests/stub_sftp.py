@@ -20,12 +20,16 @@
 A stub SFTP server for loopback SFTP testing.
 """
 
+
 import os
-from paramiko import ServerInterface, SFTPServerInterface, SFTPServer, SFTPAttributes, \
-    SFTPHandle, SFTP_OK, AUTH_SUCCESSFUL, AUTH_FAILED, OPEN_SUCCEEDED, RSAKey
+
+from paramiko import (AUTH_FAILED, AUTH_SUCCESSFUL, OPEN_SUCCEEDED, SFTP_OK,
+                      RSAKey, ServerInterface, SFTPAttributes, SFTPHandle,
+                      SFTPServer, SFTPServerInterface)
 from paramiko.common import o666
 
 from pysftpserver.tests.utils import t_path
+
 
 USERNAME = "test"
 PASSWORD = "secret"

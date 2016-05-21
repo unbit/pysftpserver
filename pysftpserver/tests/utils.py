@@ -7,7 +7,7 @@ import random
 root_path = os.path.dirname(os.path.realpath(__file__))
 
 
-def t_path(filename="."):
+def t_path(filename='.'):
     """Get the path of the test file inside test directory."""
     return os.path.join(root_path, filename)
 
@@ -48,10 +48,8 @@ def get_sftpname(blob):
 
 def get_sftpstat(blob):
     attrs = dict()
-    attrs['size'], attrs['uid'], \
-        attrs['gid'], attrs['mode'], \
-        attrs['atime'], attrs['mtime'] \
-        = struct.unpack('>QIIIII', blob[13:])
+    (attrs['size'], attrs['uid'], attrs['gid'], attrs['mode'], attrs['atime'],
+     attrs['mtime']) = struct.unpack('>QIIIII', blob[13:])
     return attrs
 
 
