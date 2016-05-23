@@ -1,13 +1,30 @@
 from __future__ import print_function
 
-import unittest
 import os
-import stat
+import unittest
 from shutil import rmtree
+import stat as stat_lib
 
-from pysftpserver.server import *
-from pysftpserver.virtualchroot import *
-from pysftpserver.tests.utils import *
+from pysftpserver.server import (SSH2_FILEXFER_ATTR_ACMODTIME,
+                                 SSH2_FILEXFER_ATTR_PERMISSIONS,
+                                 SSH2_FILEXFER_ATTR_SIZE,
+                                 SSH2_FILEXFER_VERSION, SSH2_FXF_CREAT,
+                                 SSH2_FXF_EXCL, SSH2_FXF_READ, SSH2_FXF_WRITE,
+                                 SSH2_FXP_CLOSE, SSH2_FXP_FSETSTAT,
+                                 SSH2_FXP_FSTAT, SSH2_FXP_INIT, SSH2_FXP_LSTAT,
+                                 SSH2_FXP_MKDIR, SSH2_FXP_OPEN,
+                                 SSH2_FXP_OPENDIR, SSH2_FXP_READ,
+                                 SSH2_FXP_READDIR, SSH2_FXP_READLINK,
+                                 SSH2_FXP_REMOVE, SSH2_FXP_RENAME,
+                                 SSH2_FXP_RMDIR, SSH2_FXP_SETSTAT,
+                                 SSH2_FXP_STAT, SSH2_FXP_SYMLINK,
+                                 SSH2_FXP_WRITE, SFTPException, SFTPForbidden,
+                                 SFTPNotFound, SFTPServer)
+from pysftpserver.tests.utils import (get_sftpdata, get_sftphandle,
+                                      get_sftpint, get_sftpname, get_sftpstat,
+                                      sftpcmd, sftpint, sftpint64, sftpstring,
+                                      t_path)
+from pysftpserver.virtualchroot import SFTPServerVirtualChroot
 
 
 class ServerTest(unittest.TestCase):
@@ -195,7 +212,7 @@ class ServerTest(unittest.TestCase):
 
         self.assertEqual(
             0o600,
-            stat.S_IMODE(os.lstat('services').st_mode)
+            stat_lib.S_IMODE(os.lstat('services').st_mode)
         )
 
         self.assertEqual(
@@ -265,7 +282,7 @@ class ServerTest(unittest.TestCase):
 
         self.assertEqual(
             0o600,
-            stat.S_IMODE(os.lstat('services').st_mode)
+            stat_lib.S_IMODE(os.lstat('services').st_mode)
         )
 
         self.assertEqual(
@@ -468,19 +485,23 @@ class ServerTest(unittest.TestCase):
 
     def test_symlink(self):
         self.server.input_queue = sftpcmd(
-            SSH2_FXP_SYMLINK, sftpstring(b'bad/ugly'), sftpstring(b'bad/ugliest'), sftpint(0))
+            SSH2_FXP_SYMLINK, sftpstring(b'bad/ugly'),
+            sftpstring(b'bad/ugliest'), sftpint(0))
         self.assertRaises(SFTPNotFound, self.server.process)
 
         self.server.input_queue = sftpcmd(
-            SSH2_FXP_SYMLINK, sftpstring(b'/bad/ugly'), sftpstring(b'bad/ugliest'), sftpint(0))
+            SSH2_FXP_SYMLINK, sftpstring(b'/bad/ugly'),
+            sftpstring(b'bad/ugliest'), sftpint(0))
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = sftpcmd(
-            SSH2_FXP_SYMLINK, sftpstring(b'bad/ugly'), sftpstring(b'/bad/ugliest'), sftpint(0))
+            SSH2_FXP_SYMLINK, sftpstring(b'bad/ugly'),
+            sftpstring(b'/bad/ugliest'), sftpint(0))
         self.assertRaises(SFTPForbidden, self.server.process)
 
         self.server.input_queue = sftpcmd(
-            SSH2_FXP_SYMLINK, sftpstring(b'ugly'), sftpstring(b'ugliest'), sftpint(0))
+            SSH2_FXP_SYMLINK, sftpstring(b'ugly'),
+            sftpstring(b'ugliest'), sftpint(0))
         self.server.process()
         self.assertIn('ugly', os.listdir('.'))
 
@@ -613,7 +634,7 @@ class ServerTest(unittest.TestCase):
         )
         self.assertEqual(
             0o644,
-            stat.S_IMODE(os.lstat('services').st_mode)
+            stat_lib.S_IMODE(os.lstat('services').st_mode)
         )
         self.assertEqual(
             etc_services_size,
