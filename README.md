@@ -86,6 +86,8 @@ optional arguments:
                         warning!)
 ```
 
+If you want a user to be attached to one of these servers when they connect, you need to arrange for the appropriate command to be started by SSHD:
+
 ###authorized_keys magic
 With `pysftpjail` you can jail any user in the virtual chroot as soon as she connects to the SFTP server.
 You can do it by simply prepending the `pysftpjail` command to the user entry in your SSH `authorized_keys` file, e.g.:
@@ -104,6 +106,15 @@ command="pysftpjail path_to_your_jail",no-port-forwarding,no-x11-forwarding,no-a
 ```
 
 Obviusly, you could do the same with `pysftpproxy`.
+
+###Customizing sshd_config
+If you need to do this at a system level, or if you need to support password authentication as well as public keys, you can use the ForceCommand option in `/etc/ssh/sshd_config`. 
+
+For example, to ensure that the `sftptest` user only has access to the `/tmp` directory, put something like the following at the end of `sshd_config`:
+
+    Match User sftptest
+        ForceCommand /usr/local/bin/pysftpjail /tmp
+
 
 ##Customization
 We provide two complete examples of SFTP storage: simple and jailed.
