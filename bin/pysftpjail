@@ -15,8 +15,8 @@ def main():
                         help='the path of the chroot jail')
     parser.add_argument('--logfile', '-l', dest='logfile',
                         help='path to the logfile')
-    parser.add_argument('--umask', '-u', dest='umask',
-                        help='set the umask of the SFTP server')
+    parser.add_argument('--umask', '-u', dest='umask', type=int,
+                        help='set the umask of the SFTP server (note: decimal value expected)')
 
     args = parser.parse_args()
     SFTPServer(
